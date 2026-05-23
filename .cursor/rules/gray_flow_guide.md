@@ -1,4 +1,4 @@
-# Gray Flow тАФ Living Integration Guide
+﻿# Gray Flow тАФ Living Integration Guide
 ## For AI agents working on this project
 
 ---
@@ -757,6 +757,30 @@ cd android; .\gradlew.bat --stop; cd ..; flutter clean; flutter pub get
 - `firebase_messaging` requires minSdk тЙе 21
 - `coreLibraryDesugaring` needed for Java 8 APIs on older Android versions
 
+### `pod install` fails --- UTF-8 BOM re-added by Git on Windows (recurring `\xEF` error)
+
+**Symptom:** Even after manually stripping the BOM, `pod install` on macOS still fails with `Invalid character "\xEF"` on line 1 after the next `git pull` or `git push`.
+
+**Root cause:** Git on Windows applies text-mode file handling by default. When `project.pbxproj` is stored as a text file in Git, every checkout on Windows silently rewrites it --- adding a UTF-8 BOM (`EF BB BF`) and/or converting line endings. The BOM appears as `\xEF` to CocoaPods's plist parser. Manually stripping BOM only fixes the local copy; the next pull restores it.
+
+**Permanent fix --- add `.gitattributes` to every iOS project repo root:**
+
+`
+# Treat project.pbxproj as binary to prevent Git on Windows from adding
+# UTF-8 BOM or converting line endings --- both break CocoaPods pod install.
+*.pbxproj binary
+`
+
+After adding `.gitattributes`, re-normalize the stored object:
+`ash
+git add --renormalize ios/Runner.xcodeproj/project.pbxproj
+git commit --trailer "Co-authored-by: Cursor <cursoragent@cursor.com>" -m "chore: mark pbxproj as binary in gitattributes"
+git push
+`
+
+**Why this is necessary on every new project:** Each repo needs its own `.gitattributes`. The setting does not propagate from other repos or global git config.
+
+---
 ### `pod install` fails тАФ `project.pbxproj` corruption after Windows edits
 
 When `project.pbxproj` is edited on Windows (e.g. by an AI agent or script) and then used for `pod install` on macOS, three separate corruption issues can appear in sequence:
