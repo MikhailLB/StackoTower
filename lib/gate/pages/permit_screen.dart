@@ -30,7 +30,7 @@ class PermitScreen extends StatefulWidget {
 }
 
 class _PermitScreenState extends State<PermitScreen>
-    with TickerProviderStateMixin {
+    with TickerProviderStateMixin, WidgetsBindingObserver {
   bool _busy = false;
   late final AnimationController _shimmer;
   late final AnimationController _glow;
@@ -38,6 +38,7 @@ class _PermitScreenState extends State<PermitScreen>
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
     SystemChrome.setPreferredOrientations(const [
       DeviceOrientation.portraitUp,
@@ -53,7 +54,15 @@ class _PermitScreenState extends State<PermitScreen>
   }
 
   @override
+  void didChangeMetrics() {
+    // Rebuild when immersive mode hides system UI — same cold-start layout
+    // issue as ContentBrowser (gray_flow_guide §2).
+    if (mounted) setState(() {});
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _shimmer.dispose();
     _glow.dispose();
     super.dispose();
@@ -122,27 +131,23 @@ class _PermitScreenState extends State<PermitScreen>
           children: [
             Image.asset(bgAsset, fit: BoxFit.cover,
                 errorBuilder: (ctx, err, st) => const ColoredBox(color: Colors.black)),
-            SafeArea(
-              child: Stack(
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: bottomGap + mq.padding.bottom,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Positioned(
-                    left: 0, right: 0, bottom: bottomGap,
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        _AcceptButton(
-                          width: btnW,
-                          busy: _busy,
-                          shimmer: _shimmer,
-                          glow: _glow,
-                          onTap: _accept,
-                          compact: landscape,
-                        ),
-                        SizedBox(height: mq.size.height * 0.022),
-                        _SkipButton(onTap: _skip, compact: landscape),
-                      ],
-                    ),
+                  _AcceptButton(
+                    width: btnW,
+                    busy: _busy,
+                    shimmer: _shimmer,
+                    glow: _glow,
+                    onTap: _accept,
+                    compact: landscape,
                   ),
+                  SizedBox(height: mq.size.height * 0.022),
+                  _SkipButton(onTap: _skip, compact: landscape),
                 ],
               ),
             ),
