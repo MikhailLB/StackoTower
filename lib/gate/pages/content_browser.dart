@@ -52,6 +52,41 @@ class _ContentBrowserState extends State<ContentBrowser>
   void _applyImmersive() =>
       SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
 
+  /// Force WKWebView + Flutter layout to recalculate after immersive settles.
+  void _recalcViewport() {
+    if (!mounted) return;
+    setState(() {});
+    _wv.runJavaScript(
+      'window.dispatchEvent(new Event("resize"));'
+      'if(window.visualViewport)'
+      '  window.visualViewport.dispatchEvent(new Event("resize"));',
+    );
+    _injectSafeArea();
+  }
+
+  void _scheduleImmersiveSettle() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _applyImmersive();
+      // Rebuild at 100ms / 300ms — viewPadding updates once status bar hides.
+      Future.delayed(const Duration(milliseconds: 100), () {
+        if (mounted) setState(() {});
+      });
+      Future.delayed(const Duration(milliseconds: 300), () {
+        if (mounted) setState(() {});
+      });
+    });
+  }
+
+  void _startLoad() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _applyImmersive();
+      Future.delayed(const Duration(milliseconds: 150), () {
+        if (!mounted) return;
+        _wv.loadRequest(Uri.parse(widget.destination));
+      });
+    });
+  }
+
   @override
   void didChangeMetrics() {
     // Rebuild once immersiveSticky hides the status bar / home indicator.
@@ -98,7 +133,8 @@ class _ContentBrowserState extends State<ContentBrowser>
       ..setNavigationDelegate(_buildDelegate());
 
     _configurePlatform();
-    _wv.loadRequest(Uri.parse(widget.destination));
+    _scheduleImmersiveSettle();
+    _startLoad();
 
     widget.pulse.onPushUrl = (url) {
       if (!mounted) return;
@@ -143,15 +179,7 @@ class _ContentBrowserState extends State<ContentBrowser>
         // resize event ~800ms later forces the site to recalculate its layout
         // after immersive mode is fully applied вЂ” same effect as rotating the
         // device but without user intervention.
-        Future.delayed(const Duration(milliseconds: 800), () {
-          if (!mounted) return;
-          _wv.runJavaScript(
-            'window.dispatchEvent(new Event("resize"));'
-            'if(window.visualViewport)'
-            '  window.visualViewport.dispatchEvent(new Event("resize"));',
-          );
-          _injectSafeArea();
-        });
+        Future.delayed(const Duration(milliseconds: 800), _recalcViewport);
         if (!_firstPaintFired) {
           _firstPaintFired = true;
           Future.delayed(const Duration(milliseconds: 600), () {
@@ -376,7 +404,6 @@ class _ContentBrowserState extends State<ContentBrowser>
 
   @override
   Widget build(BuildContext context) {
-    final safe = MediaQuery.of(context).viewPadding;
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, _) async {
@@ -388,13 +415,10 @@ class _ContentBrowserState extends State<ContentBrowser>
         body: Stack(
           fit: StackFit.expand,
           children: [
-            Padding(
-              padding: EdgeInsets.only(
-                top: safe.top, bottom: safe.bottom,
-                left: safe.left, right: safe.right,
-              ),
-              child: WebViewWidget(controller: _wv),
-            ),
+            // Full-bleed WebView — do NOT pad with viewPadding here.
+            // Stale viewPadding on cold-start push tap caused the centred
+            // rectangle + black letterboxing. Safe area is handled in JS.
+            Positioned.fill(child: WebViewWidget(controller: _wv)),
             if (_fullscreenOverlay != null)
               Positioned.fill(child: _fullscreenOverlay!),
           ],

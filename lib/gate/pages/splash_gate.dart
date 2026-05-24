@@ -111,7 +111,13 @@ class _SplashGateState extends State<SplashGate> {
       await widget.vault.consumeOneShotUrl();
       // Fire attribution in background — never block the user
       unawaited(_dispatchBackground());
-      _goContent(nativeColdUrl);
+      // Apply immersive before navigation so ContentBrowser opens with
+      // settled system UI (StackoTower Info.plist must not force-hide status bar).
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        _goContent(nativeColdUrl);
+      });
       return;
     }
 

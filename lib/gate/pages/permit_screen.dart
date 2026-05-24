@@ -131,23 +131,27 @@ class _PermitScreenState extends State<PermitScreen>
           children: [
             Image.asset(bgAsset, fit: BoxFit.cover,
                 errorBuilder: (ctx, err, st) => const ColoredBox(color: Colors.black)),
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: bottomGap + mq.padding.bottom,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
+            SafeArea(
+              child: Stack(
                 children: [
-                  _AcceptButton(
-                    width: btnW,
-                    busy: _busy,
-                    shimmer: _shimmer,
-                    glow: _glow,
-                    onTap: _accept,
-                    compact: landscape,
+                  Positioned(
+                    left: 0, right: 0, bottom: bottomGap,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        _AcceptButton(
+                          width: btnW,
+                          busy: _busy,
+                          shimmer: _shimmer,
+                          glow: _glow,
+                          onTap: _accept,
+                          compact: landscape,
+                        ),
+                        SizedBox(height: mq.size.height * 0.022),
+                        _SkipButton(onTap: _skip, compact: landscape),
+                      ],
+                    ),
                   ),
-                  SizedBox(height: mq.size.height * 0.022),
-                  _SkipButton(onTap: _skip, compact: landscape),
                 ],
               ),
             ),
