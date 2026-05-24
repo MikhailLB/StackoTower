@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'app/app_orientation.dart';
+import 'app/game_asset_loader.dart';
 import 'bootstrap.dart';
 import 'gate/config/endpoint_vault.dart';
 import 'gate/config/signal_keys.dart';
@@ -65,6 +66,8 @@ Future<void> main() async {
   final storage = await StorageService.create();
   progress = GameProgress(storage);
   await AudioService.init(progress);
+  // Gray flow skips LoadingScreen — preload Flame sprites here instead.
+  final assetsFuture = preloadGameAssets();
   debugPrint('[BOOT] white-part ready ${sw.elapsedMilliseconds}ms');
 
   // ── Gray gate init ──────────────────────────────────────────────────
@@ -83,8 +86,8 @@ Future<void> main() async {
 
   await firebaseFuture;
   debugPrint('[BOOT] firebase ready ${sw.elapsedMilliseconds}ms');
-  await Future.wait([agentFuture, vaultFuture]);
-  debugPrint('[BOOT] agent+vault ready ${sw.elapsedMilliseconds}ms');
+  await Future.wait([agentFuture, vaultFuture, assetsFuture]);
+  debugPrint('[BOOT] agent+vault+assets ready ${sw.elapsedMilliseconds}ms');
 
   final probe    = ReachProbe();
   final signal   = TrackingSignal();

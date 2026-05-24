@@ -3,10 +3,10 @@ import 'dart:async';
 import 'package:flame/flame.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:video_player/video_player.dart';
 
 import '../app/app_orientation.dart';
+import '../app/game_asset_loader.dart';
 import '../app/stacko_assets.dart';
 import 'main_menu_screen.dart';
 
@@ -64,7 +64,7 @@ class _LoadingScreenState extends State<LoadingScreen>
     setState(() => _showBar = true);
 
     final barFuture = _progressController.forward();
-    final assetsFuture = _preloadGameAssets();
+    final assetsFuture = preloadGameAssets();
 
     await Future.wait([barFuture, assetsFuture]);
 
@@ -128,39 +128,6 @@ class _LoadingScreenState extends State<LoadingScreen>
     if (!c.value.isInitialized) return;
     if (c.value.isPlaying) return;
     c.play();
-  }
-
-  Future<void> _preloadGameAssets() async {
-    Flame.images.prefix = '';
-    final paths = <String>[
-      StackoAssets.sky,
-      StackoAssets.ground,
-      StackoAssets.cloud,
-      StackoAssets.hook,
-      StackoAssets.startBg,
-      StackoAssets.startBuilding,
-      StackoAssets.icon,
-      StackoAssets.gameName,
-      ...StackoAssets.allBlocks,
-      for (var i = 1; i <= 4; i++) StackoAssets.loadingBar(i),
-    ];
-    for (final p in paths) {
-      try {
-        await Flame.images.load(p);
-      } catch (e) {
-        debugPrint('LoadingScreen: failed to preload $p: $e');
-      }
-    }
-    try {
-      GoogleFonts.bangers();
-      GoogleFonts.fredoka();
-      await GoogleFonts.pendingFonts(<TextStyle>[
-        GoogleFonts.bangers(),
-        GoogleFonts.fredoka(),
-      ]);
-    } catch (e) {
-      debugPrint('LoadingScreen: Google Fonts preload failed: $e');
-    }
   }
 
   void _goToMenu() {
