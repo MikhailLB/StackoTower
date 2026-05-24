@@ -4,6 +4,12 @@ platform :ios, '13.0'
 # CocoaPods analytics sends network stats synchronously affecting flutter build latency.
 ENV['COCOAPODS_DISABLE_STATS'] = 'true'
 
+# Disable CocoaPods sandbox input/output path tracking.
+# Without this, Xcode's "Check Pods Manifest.lock" script phase fails when
+# the CI pod install runs fast via cache and Manifest.lock lags behind.
+# Safe to disable — CI always runs pod install before archiving.
+install! 'cocoapods', :disable_input_output_paths => true
+
 project 'Runner', {
   'Debug' => :debug,
   'Profile' => :release,
