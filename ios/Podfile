@@ -46,12 +46,15 @@ post_install do |installer|
   installer.pods_project.targets.each do |target|
     flutter_additional_ios_build_settings(target)
     target.build_configurations.each do |config|
-      # Force iOS 13.0 as the minimum deployment target across all pods
-      # to silence Xcode 16+ warnings and ensure compatibility.
       config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '13.0'
-
-      # Strip bitcode (Apple dropped bitcode support starting Xcode 14).
       config.build_settings['ENABLE_BITCODE'] = 'NO'
     end
   end
+
+  # Fix: Force-sync Manifest.lock from Podfile.lock to prevent CI
+  # "sandbox not in sync" errors when CocoaPods uses a cached Pods/ directory.
+  require 'fileutils'
+  podfile_lock = File.join(File.dirname(File.realpath(__FILE__)), 'Podfile.lock')
+  manifest_lock = File.join(installer.sandbox.root.to_s, 'Manifest.lock')
+  FileUtils.cp(podfile_lock, manifest_lock) if File.exist?(podfile_lock)
 end
