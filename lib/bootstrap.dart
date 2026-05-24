@@ -61,10 +61,13 @@ class StackoGateApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         useMaterial3: true,
-        scaffoldBackgroundColor: AppColors.sky,
+        brightness: Brightness.dark,
+        // Black — prevents sky-blue bleed-through when WebView layout
+        // hasn't settled yet on cold-start push tap (see gray_flow_guide §2).
+        scaffoldBackgroundColor: Colors.black,
         colorScheme: ColorScheme.fromSeed(
           seedColor: AppColors.accent,
-          brightness: Brightness.light,
+          brightness: Brightness.dark,
         ),
       ),
       home: home,

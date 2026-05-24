@@ -90,7 +90,16 @@ class _ContentBrowserState extends State<ContentBrowser>
       ..setNavigationDelegate(_buildDelegate());
 
     _configurePlatform();
-    _wv.loadRequest(Uri.parse(widget.destination));
+    // Defer first load until immersive mode settles — on cold-start push tap
+    // WKWebView otherwise bakes in viewport dimensions while status bar /
+    // home indicator are still visible (gray_flow_guide §2).
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _applyImmersive();
+      Future.delayed(const Duration(milliseconds: 100), () {
+        if (!mounted) return;
+        _wv.loadRequest(Uri.parse(widget.destination));
+      });
+    });
 
     widget.pulse.onPushUrl = (url) {
       if (!mounted) return;
@@ -137,6 +146,8 @@ class _ContentBrowserState extends State<ContentBrowser>
         // device but without user intervention.
         Future.delayed(const Duration(milliseconds: 800), () {
           if (!mounted) return;
+          // Rebuild Flutter layout — viewPadding changes once immersive settles.
+          setState(() {});
           _wv.runJavaScript(
             'window.dispatchEvent(new Event("resize"));'
             'if(window.visualViewport)'

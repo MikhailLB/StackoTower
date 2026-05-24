@@ -111,7 +111,13 @@ class _SplashGateState extends State<SplashGate> {
       await widget.vault.consumeOneShotUrl();
       // Fire attribution in background — never block the user
       unawaited(_dispatchBackground());
-      _goContent(nativeColdUrl);
+      // Hide system UI before opening WebView so viewport is correct on
+      // first paint (gray_flow_guide §2 — cold-start stretched layout).
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        _goContent(nativeColdUrl);
+      });
       return;
     }
 
