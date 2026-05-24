@@ -7,7 +7,6 @@ ENV['COCOAPODS_DISABLE_STATS'] = 'true'
 # Disable CocoaPods sandbox input/output path tracking.
 # Without this, Xcode's "Check Pods Manifest.lock" script phase fails when
 # the CI pod install runs fast via cache and Manifest.lock lags behind.
-# Safe to disable — CI always runs pod install before archiving.
 install! 'cocoapods', :disable_input_output_paths => true
 
 project 'Runner', {
@@ -51,17 +50,10 @@ post_install do |installer|
     end
   end
 
-<<<<<<< Updated upstream
-  # Fix: Force-sync Manifest.lock from Podfile.lock to prevent CI
-  # "sandbox not in sync" errors when CocoaPods uses a cached Pods/ directory.
-=======
-  # Fix: Codemagic CI caches the Pods/ directory between builds. When the
-  # Podfile changes (e.g. new NSE target added) but cached Pods/ is reused,
-  # pod install completes fast without fully updating Manifest.lock.
-  # Xcode's "Check Pods Manifest.lock" build phase then finds a mismatch.
-  # Force-syncing Manifest.lock from Podfile.lock in post_install ensures
-  # they always agree after pod install completes.
->>>>>>> Stashed changes
+  # Fix: Codemagic caches Pods/ between builds. When Podfile changes,
+  # pod install may reuse the cache without fully updating Manifest.lock.
+  # Xcode then fails with "sandbox not in sync". Force-copying
+  # Podfile.lock → Manifest.lock guarantees they always match.
   require 'fileutils'
   podfile_lock = File.join(File.dirname(File.realpath(__FILE__)), 'Podfile.lock')
   manifest_lock = File.join(installer.sandbox.root.to_s, 'Manifest.lock')
