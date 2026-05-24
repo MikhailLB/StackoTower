@@ -73,8 +73,8 @@ class _SplashGateState extends State<SplashGate> {
 
   Future<void> _switchVideo(Orientation o) async {
     final asset = o == Orientation.landscape
-        ? 'assets/splash/16x9_Loading_Screen.mp4'
-        : 'assets/splash/9x16_Loading_Screen.mp4';
+        ? 'assets/splash/16x9_loading_screen.mp4'
+        : 'assets/splash/9x16_loading_screen.mp4';
     final old = _vid;
     final ctrl = VideoPlayerController.asset(asset);
     try {
@@ -351,9 +351,9 @@ class _SplashGateState extends State<SplashGate> {
 
   String _barAsset() {
     switch (_bar) {
-      case _BarStep.empty:  return 'assets/splash/loading_bar_empty.webp';
-      case _BarStep.midway: return 'assets/splash/loading_bar_half.webp';
-      case _BarStep.done:   return 'assets/splash/loading_bar_full.webp';
+      case _BarStep.empty:  return 'assets/splash/bar_01.webp';
+      case _BarStep.midway: return 'assets/splash/bar_02.webp';
+      case _BarStep.done:   return 'assets/splash/bar_04.webp';
     }
   }
 

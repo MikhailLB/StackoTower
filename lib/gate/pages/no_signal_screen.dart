@@ -67,8 +67,8 @@ class _NoSignalScreenState extends State<NoSignalScreen>
     final c = MediaQuery.of(context);
     final landscape = c.size.width > c.size.height;
     final bgAsset = landscape
-        ? 'assets/additional_assets/no_wifi/16x9_NoWifi_screen.webp'
-        : 'assets/additional_assets/no_wifi/9x16_NoWifi_screen.webp';
+        ? 'assets/additional_assets/no_wifi/16x9_no_wifi_screen.webp'
+        : 'assets/additional_assets/no_wifi/9x16_no_wifi_screen.webp';
     final btnW = landscape
         ? (c.size.width * 0.24).clamp(200.0, 340.0)
         : (c.size.width * 0.52).clamp(180.0, 300.0);

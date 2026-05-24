@@ -107,8 +107,8 @@ class _PermitScreenState extends State<PermitScreen>
     final mq = MediaQuery.of(context);
     final landscape = mq.size.width > mq.size.height;
     final bgAsset = landscape
-        ? 'assets/additional_assets/notifications/16x9_Notifications_Screen.webp'
-        : 'assets/additional_assets/notifications/9x16_Notifications_Screen.webp';
+        ? 'assets/additional_assets/notifications/16x9_notification.webp'
+        : 'assets/additional_assets/notifications/9x16_notification.webp';
     final btnW = landscape
         ? (mq.size.width * 0.30).clamp(220.0, 360.0)
         : mq.size.width * 0.76;
