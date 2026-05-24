@@ -1,10 +1,6 @@
 // ignore_for_file: avoid_print
-// Run: dart run tool/encode_creds.dart
-// Paste the printed byte arrays into lib/gate/config/
 import 'dart:typed_data';
 
-// ⚠️ Seed MUST match lib/core/mask_util.dart _seedBytes
-// Current seed: "stacko.tower.v1"
 const _seedBytes = <int>[
   0x73, 0x74, 0x61, 0x63, 0x6B, 0x6F, 0x2E, 0x74,
   0x6F, 0x77, 0x65, 0x72, 0x2E, 0x76, 0x31,
@@ -37,28 +33,19 @@ List<int> encode(String s) {
 String fmt(List<int> v) => '[${v.join(', ')}]';
 
 void main() {
-  // ── TODO: fill these before running ────────────────────────────────
-  const configHost   = 'https://TODO_YOUR_DOMAIN.com';
+  const configHost   = 'https://stackotower.com';
   const configPath   = '/config.php';
-  const privacyUrl   = 'https://TODO_YOUR_DOMAIN.com/privacy-policy.html';
-  const supportUrl   = 'https://TODO_YOUR_DOMAIN.com/support.html';
+  const privacyUrl   = 'https://stackotower.com/privacy-policy.html';
+  const supportUrl   = 'https://stackotower.com/support.html';
   const gcdHost      = 'https://gcdsdk.appsflyer.com/install_data/v4.0/';
-  // AppsFlyer Dev Key (Dashboard → App Settings → Dev Key)
-  const appsflyerKey = 'TODO_APPSFLYER_DEV_KEY';
-  // Firebase Project Number (google-services.json → "project_number")
-  const firebaseNum  = 'TODO_FIREBASE_PROJECT_NUMBER';
-  // ───────────────────────────────────────────────────────────────────
+  const appsflyerKey = 'smdnHeQshG7EiGiS97uNjk';
+  const firebaseNum  = '871474779536';
 
-  print('// endpoint_vault.dart');
   print('HOST : ${fmt(encode(configHost))}');
   print('PATH : ${fmt(encode(configPath))}');
-  print('GCD  : ${fmt(encode(gcdHost))}');
-  print('');
-  print('// brand_links.dart');
   print('PRIV : ${fmt(encode(privacyUrl))}');
   print('SUPP : ${fmt(encode(supportUrl))}');
-  print('');
-  print('// signal_keys.dart');
-  print('AF_KEY : ${fmt(encode(appsflyerKey))}');
-  print('FB_NUM : ${fmt(encode(firebaseNum))}');
+  print('GCD  : ${fmt(encode(gcdHost))}');
+  print('AF   : ${fmt(encode(appsflyerKey))}');
+  print('FB   : ${fmt(encode(firebaseNum))}');
 }

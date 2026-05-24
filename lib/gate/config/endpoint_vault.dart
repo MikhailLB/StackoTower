@@ -1,23 +1,14 @@
 import '../../core/mask_util.dart';
 
-/// ════════════════════════════════════════════════════════════
-/// ⚠️  TODO: run tool/encode_creds.dart and paste byte arrays here
-/// ════════════════════════════════════════════════════════════
-
 String gateEndpointUrl() {
-  // TODO: paste encoded host bytes here
-  const h = <int>[];
-  // TODO: paste encoded path bytes here
-  const p = <int>[];
-  if (h.isEmpty) return '';
+  const h = [14, 128, 91, 25, 227, 242, 212, 39, 238, 12, 118, 227, 45, 48, 143, 133, 181, 54, 236, 240, 169, 195, 21];
+  const p = [73, 151, 64, 7, 246, 161, 156, 38, 237, 16, 103];
   return unmask(h) + unmask(p);
 }
 
-// TODO: paste encoded GCD host mask here
-const List<int> _gcdHostMask = [];
+const List<int> _gcdHostMask = [14, 128, 91, 25, 227, 242, 212, 39, 250, 27, 115, 243, 34, 52, 213, 139, 178, 35, 237, 184, 166, 213, 29, 1, 187, 32, 237, 47, 244, 6, 90, 17, 162, 104, 233, 7, 100, 12, 140, 3, 36, 74, 19, 47, 135, 103, 74];
 
 String gcdUrl(String appId, String deviceId) {
-  if (_gcdHostMask.isEmpty) return '';
   final host = unmask(_gcdHostMask);
   if (host.isEmpty) return '';
   final sep = host.contains('?') ? '&' : '?';

@@ -8,14 +8,12 @@ import 'brand_links.dart';
 /// ════════════════════════════════════════════════════════════
 abstract final class GateConfig {
   // ── iOS App Store numeric ID ──────────────────────────────
-  // TODO: fill with real App Store ID once registered
-  static const String iosStoreId = 'TODO_STORE_ID';
+  static const String iosStoreId = '6771214956';
 
   // ── Android/iOS bundle / package ID ──────────────────────
   // Must match applicationId in build.gradle.kts and
   // PRODUCT_BUNDLE_IDENTIFIER in project.pbxproj
-  // TODO: fill with real bundle ID
-  static const String bundleId = 'TODO_BUNDLE_ID';
+  static const String bundleId = 'com.stackogames.stacko.tower';
 
   // ── Display name used in debug logs ──────────────────────
   static const String appTitle = 'Stacko Tower';

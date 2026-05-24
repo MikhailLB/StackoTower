@@ -1,26 +1,11 @@
 import '../../core/mask_util.dart';
 
-/// ════════════════════════════════════════════════════════════
-/// ⚠️  TODO: run tool/encode_creds.dart and paste byte arrays here
-/// ════════════════════════════════════════════════════════════
-///
-/// appsflyerDevKey()       → AppsFlyer Dev Key
-///                           Dashboard → App Settings → Dev Key
-///
-/// firebaseProjectNumber() → Firebase Project Number (numeric)
-///                           google-services.json → "project_number"
-///                           OR Firebase Console → Project Settings → General
-///
-/// Run tool/encode_creds.dart to get byte arrays for your values.
-
 String appsflyerDevKey() {
-  // TODO: paste encoded bytes here
-  const v = <int>[];
+  const v = [21, 153, 75, 7, 216, 173, 170, 123, 245, 63, 32, 197, 47, 24, 146, 185, 251, 100, 235, 144, 160, 199];
   return unmask(v);
 }
 
 String firebaseProjectNumber() {
-  // TODO: paste encoded bytes here
-  const v = <int>[];
+  const v = [94, 195, 30, 93, 167, 252, 204, 63, 164, 77, 36, 182];
   return unmask(v);
 }
