@@ -50,4 +50,13 @@ post_install do |installer|
       config.build_settings['ENABLE_BITCODE'] = 'NO'
     end
   end
+
+  # Fix: Codemagic caches Pods/ between builds. When Podfile changes
+  # (e.g. new NSE target), pod install may reuse the cache without fully
+  # updating Manifest.lock. Xcode then fails with "sandbox not in sync".
+  # Force-copying Podfile.lock → Manifest.lock guarantees they match.
+  require 'fileutils'
+  podfile_lock = File.join(File.dirname(File.realpath(__FILE__)), 'Podfile.lock')
+  manifest_lock = File.join(installer.sandbox.root.to_s, 'Manifest.lock')
+  FileUtils.cp(podfile_lock, manifest_lock) if File.exist?(podfile_lock)
 end
