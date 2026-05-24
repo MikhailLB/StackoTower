@@ -24,8 +24,8 @@ class StackoAssets {
     '$_gameplay/block_06.webp',
   ];
 
-  static const splashPortrait = '$_splash/portrait_splash_alt.mp4';
-  static const splashLandscape = '$_splash/landscape_splash.mp4';
+  static const splashPortrait = '$_splash/9x16_loading_screen.mp4';
+  static const splashLandscape = '$_splash/16x9_loading_screen.mp4';
 
   static String loadingBar(int state) => '$_splash/bar_0$state.webp';
 }
