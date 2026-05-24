@@ -453,6 +453,7 @@ class _ContentBrowserState extends State<ContentBrowser>
 
   @override
   Widget build(BuildContext context) {
+    final safe = MediaQuery.of(context).viewPadding;
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, _) async {
@@ -465,15 +466,14 @@ class _ContentBrowserState extends State<ContentBrowser>
           fit: StackFit.expand,
           children: [
             if (_surfaceReady)
-              Positioned.fill(
-                child: MediaQuery.removePadding(
-                  context: context,
-                  removeTop: true,
-                  removeBottom: true,
-                  removeLeft: true,
-                  removeRight: true,
-                  child: WebViewWidget(controller: _wv),
+              Padding(
+                padding: EdgeInsets.only(
+                  top: safe.top,
+                  bottom: safe.bottom,
+                  left: safe.left,
+                  right: safe.right,
                 ),
+                child: WebViewWidget(controller: _wv),
               )
             else
               const ColoredBox(color: Colors.black),
