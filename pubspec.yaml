@@ -1,7 +1,7 @@
 name: stacko_tower
 description: "StackoTower - stack falling blocks and build the tallest tower!"
 publish_to: 'none'
-version: 1.0.1+11
+version: 1.0.1+12
 
 environment:
   sdk: ^3.11.4
