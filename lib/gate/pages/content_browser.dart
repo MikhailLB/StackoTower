@@ -24,6 +24,8 @@ class ContentBrowser extends StatefulWidget {
   final PulseRelay pulse;
   final ReachProbe probe;
   final VoidCallback? onFirstPaint;
+  /// True when opened from a killed-app push tap express lane.
+  final bool coldStartPush;
 
   const ContentBrowser({
     super.key,
@@ -32,6 +34,7 @@ class ContentBrowser extends StatefulWidget {
     required this.pulse,
     required this.probe,
     this.onFirstPaint,
+    this.coldStartPush = false,
   });
 
   @override
@@ -46,14 +49,40 @@ class _ContentBrowserState extends State<ContentBrowser>
   String? _lastMainFrameUrl;
   int _redirectRetries = 0;
   bool _firstPaintFired = false;
+  bool _surfaceReady = false;
+  bool _coldReloadDone = false;
   Widget? _fullscreenOverlay;
   void Function()? _hideOverlay;
 
   void _applyImmersive() =>
       SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
 
+  /// Micro-rotation — same fix as manually rotating the device (guide §2).
+  Future<void> _nudgeOrientationLayout() async {
+    if (!Platform.isIOS) return;
+    await SystemChrome.setPreferredOrientations([
+      DeviceOrientation.landscapeLeft,
+    ]);
+    await Future.delayed(const Duration(milliseconds: 50));
+    if (!mounted) return;
+    await SystemChrome.setPreferredOrientations(const [
+      DeviceOrientation.portraitUp,
+      DeviceOrientation.portraitDown,
+      DeviceOrientation.landscapeLeft,
+      DeviceOrientation.landscapeRight,
+    ]);
+  }
+
+  Future<void> _prepareColdStartSurface() async {
+    _applyImmersive();
+    await Future.delayed(const Duration(milliseconds: 150));
+    if (!mounted) return;
+    await _nudgeOrientationLayout();
+    await Future.delayed(const Duration(milliseconds: 250));
+  }
+
   /// Force WKWebView + Flutter layout to recalculate after immersive settles.
-  void _recalcViewport() {
+  Future<void> _recalcViewport({bool reload = false}) async {
     if (!mounted) return;
     setState(() {});
     _wv.runJavaScript(
@@ -62,6 +91,9 @@ class _ContentBrowserState extends State<ContentBrowser>
       '  window.visualViewport.dispatchEvent(new Event("resize"));',
     );
     _injectSafeArea();
+    if (reload) {
+      try { await _wv.reload(); } catch (_) {}
+    }
   }
 
   void _scheduleImmersiveSettle() {
@@ -133,8 +165,20 @@ class _ContentBrowserState extends State<ContentBrowser>
       ..setNavigationDelegate(_buildDelegate());
 
     _configurePlatform();
-    _scheduleImmersiveSettle();
-    _startLoad();
+
+    if (widget.coldStartPush) {
+      // Do NOT mount WKWebView until window metrics are final — otherwise
+      // the native view bakes a narrow centred viewport (black letterboxing).
+      _prepareColdStartSurface().then((_) {
+        if (!mounted) return;
+        setState(() => _surfaceReady = true);
+        _wv.loadRequest(Uri.parse(widget.destination));
+      });
+    } else {
+      _surfaceReady = true;
+      _scheduleImmersiveSettle();
+      _startLoad();
+    }
 
     widget.pulse.onPushUrl = (url) {
       if (!mounted) return;
@@ -179,7 +223,12 @@ class _ContentBrowserState extends State<ContentBrowser>
         // resize event ~800ms later forces the site to recalculate its layout
         // after immersive mode is fully applied вЂ” same effect as rotating the
         // device but without user intervention.
-        Future.delayed(const Duration(milliseconds: 800), _recalcViewport);
+        Future.delayed(const Duration(milliseconds: 800), () {
+          final needsReload =
+              widget.coldStartPush && !_coldReloadDone;
+          if (needsReload) _coldReloadDone = true;
+          _recalcViewport(reload: needsReload);
+        });
         if (!_firstPaintFired) {
           _firstPaintFired = true;
           Future.delayed(const Duration(milliseconds: 600), () {
@@ -415,10 +464,19 @@ class _ContentBrowserState extends State<ContentBrowser>
         body: Stack(
           fit: StackFit.expand,
           children: [
-            // Full-bleed WebView — do NOT pad with viewPadding here.
-            // Stale viewPadding on cold-start push tap caused the centred
-            // rectangle + black letterboxing. Safe area is handled in JS.
-            Positioned.fill(child: WebViewWidget(controller: _wv)),
+            if (_surfaceReady)
+              Positioned.fill(
+                child: MediaQuery.removePadding(
+                  context: context,
+                  removeTop: true,
+                  removeBottom: true,
+                  removeLeft: true,
+                  removeRight: true,
+                  child: WebViewWidget(controller: _wv),
+                ),
+              )
+            else
+              const ColoredBox(color: Colors.black),
             if (_fullscreenOverlay != null)
               Positioned.fill(child: _fullscreenOverlay!),
           ],

@@ -116,7 +116,7 @@ class _SplashGateState extends State<SplashGate> {
       SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
-        _goContent(nativeColdUrl);
+        _goContent(nativeColdUrl, coldStartPush: true);
       });
       return;
     }
@@ -284,7 +284,7 @@ class _SplashGateState extends State<SplashGate> {
     return true;
   }
 
-  void _goContent(String url) {
+  void _goContent(String url, {bool coldStartPush = false}) {
     if (_navigated) return;
     _navigated = true;
     if (widget.vault.needsPushPrompt()) {
@@ -297,6 +297,7 @@ class _SplashGateState extends State<SplashGate> {
               pulse: widget.pulse,
               probe: widget.probe,
               destination: url,
+              coldStartPush: coldStartPush,
               onTokenReady: (token) async {
                 final locale = Platform.localeName.replaceAll('-', '_');
                 final body = await widget.signal.buildPayload(
@@ -307,15 +308,15 @@ class _SplashGateState extends State<SplashGate> {
             ),
           ));
         } else {
-          _directBrowser(url);
+          _directBrowser(url, coldStartPush: coldStartPush);
         }
       });
     } else {
-      _directBrowser(url);
+      _directBrowser(url, coldStartPush: coldStartPush);
     }
   }
 
-  void _directBrowser(String url) {
+  void _directBrowser(String url, {bool coldStartPush = false}) {
     if (!mounted) return;
     Navigator.of(context).pushReplacement(MaterialPageRoute(
       builder: (_) => ContentBrowser(
@@ -323,6 +324,7 @@ class _SplashGateState extends State<SplashGate> {
         vault: widget.vault,
         pulse: widget.pulse,
         probe: widget.probe,
+        coldStartPush: coldStartPush,
       ),
     ));
   }

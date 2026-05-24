@@ -14,6 +14,7 @@ class PermitScreen extends StatefulWidget {
   final PulseRelay pulse;
   final ReachProbe probe;
   final String destination;
+  final bool coldStartPush;
   final Future<void> Function(String token)? onTokenReady;
 
   const PermitScreen({
@@ -22,6 +23,7 @@ class PermitScreen extends StatefulWidget {
     required this.pulse,
     required this.probe,
     required this.destination,
+    this.coldStartPush = false,
     this.onTokenReady,
   });
 
@@ -107,6 +109,7 @@ class _PermitScreenState extends State<PermitScreen>
         vault: widget.vault,
         pulse: widget.pulse,
         probe: widget.probe,
+        coldStartPush: widget.coldStartPush,
       ),
     ));
   }
