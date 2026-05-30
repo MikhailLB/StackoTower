@@ -339,23 +339,26 @@ class _BootScreenState extends State<BootScreen> {
               bottom: isLandscape
                   ? MediaQuery.of(context).padding.bottom + 15
                   : MediaQuery.of(context).padding.bottom + 20,
-              child: Center(
-                child: SizedBox(
-                  width: isLandscape
-                      ? MediaQuery.of(context).size.height * 0.4
-                      : MediaQuery.of(context).size.width * 0.7,
-                  child: AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 300),
-                    child: Image.asset(
-                      barAsset,
-                      key: ValueKey(barAsset),
-                      fit: BoxFit.fitWidth,
-                      filterQuality: FilterQuality.high,
-                      errorBuilder: (_, error, stack) =>
-                          const SizedBox(height: 30),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  SizedBox(
+                    width: isLandscape
+                        ? MediaQuery.of(context).size.height * 0.4
+                        : MediaQuery.of(context).size.width * 0.7,
+                    child: AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 300),
+                      child: Image.asset(
+                        barAsset,
+                        key: ValueKey(barAsset),
+                        fit: BoxFit.fitWidth,
+                        filterQuality: FilterQuality.high,
+                        errorBuilder: (_, error, stack) =>
+                            const SizedBox(height: 30),
+                      ),
                     ),
                   ),
-                ),
+                ],
               ),
             ),
         ],

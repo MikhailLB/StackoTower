@@ -219,19 +219,22 @@ class _LoadingScreenState extends State<LoadingScreen>
                   left: 0,
                   right: 0,
                   bottom: 0,
-                  child: Center(
-                    child: AnimatedBuilder(
-                      animation: _progressController,
-                      builder: (context, _) {
-                        final p = _progressController.value;
-                        final state =
-                            (p * 4).clamp(0.0, 4.0).floor().clamp(1, 4);
-                        return _LoadingBar(
-                          state: state,
-                          isPortrait: isPortrait,
-                        );
-                      },
-                    ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      AnimatedBuilder(
+                        animation: _progressController,
+                        builder: (context, _) {
+                          final p = _progressController.value;
+                          final state =
+                              (p * 4).clamp(0.0, 4.0).floor().clamp(1, 4);
+                          return _LoadingBar(
+                            state: state,
+                            isPortrait: isPortrait,
+                          );
+                        },
+                      ),
+                    ],
                   ),
                 ),
             ],
