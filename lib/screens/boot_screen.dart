@@ -333,19 +333,24 @@ class _BootScreenState extends State<BootScreen> {
                 : const SizedBox.shrink(),
           ),
           if (_videoReady)
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: isLandscape
-                  ? MediaQuery.of(context).padding.bottom + 15
-                  : MediaQuery.of(context).padding.bottom + 20,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  SizedBox(
-                    width: isLandscape
-                        ? MediaQuery.of(context).size.height * 0.4
-                        : MediaQuery.of(context).size.width * 0.7,
+            Builder(builder: (context) {
+              // Bar image: 768×1376, bar graphic center at 49.9% from top.
+              // Calculate top offset so bar center lands at target% of screen.
+              const kAspect = 1376.0 / 768.0;
+              const kBarCenter = 0.499;
+              final mq = MediaQuery.of(context);
+              final sz = mq.size;
+              final barW = isLandscape ? sz.height * 0.65 : sz.width;
+              final barH = barW * kAspect;
+              final targetY = sz.height * (isLandscape ? 0.75 : 0.82);
+              final topOffset = targetY - barH * kBarCenter;
+              return Positioned(
+                top: topOffset,
+                left: 0,
+                right: 0,
+                child: Center(
+                  child: SizedBox(
+                    width: barW,
                     child: AnimatedSwitcher(
                       duration: const Duration(milliseconds: 300),
                       child: Image.asset(
@@ -358,9 +363,9 @@ class _BootScreenState extends State<BootScreen> {
                       ),
                     ),
                   ),
-                ],
-              ),
-            ),
+                ),
+              );
+            }),
         ],
       ),
     );

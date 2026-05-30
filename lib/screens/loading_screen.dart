@@ -215,14 +215,21 @@ class _LoadingScreenState extends State<LoadingScreen>
               else
                 Container(color: Colors.black),
               if (_showBar)
-                Positioned(
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      AnimatedBuilder(
+                Builder(builder: (context) {
+                  // Bar image: 768×1376, bar graphic center at 49.9% from top.
+                  const kAspect = 1376.0 / 768.0;
+                  const kBarCenter = 0.499;
+                  final sz = MediaQuery.of(context).size;
+                  final barW = isPortrait ? sz.width : sz.height * 0.65;
+                  final barH = barW * kAspect;
+                  final targetY = sz.height * (isPortrait ? 0.82 : 0.75);
+                  final topOffset = targetY - barH * kBarCenter;
+                  return Positioned(
+                    top: topOffset,
+                    left: 0,
+                    right: 0,
+                    child: Center(
+                      child: AnimatedBuilder(
                         animation: _progressController,
                         builder: (context, _) {
                           final p = _progressController.value;
@@ -234,9 +241,9 @@ class _LoadingScreenState extends State<LoadingScreen>
                           );
                         },
                       ),
-                    ],
-                  ),
-                ),
+                    ),
+                  );
+                }),
             ],
           );
         },
@@ -274,11 +281,11 @@ class _LoadingBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
-    final width = isPortrait ? size.width * 0.7 : size.height * 0.4;
+    final width = isPortrait ? size.width : size.height * 0.65;
     return Image.asset(
       StackoAssets.loadingBar(state),
       width: width,
-      fit: BoxFit.contain,
+      fit: BoxFit.fitWidth,
       gaplessPlayback: true,
     );
   }
