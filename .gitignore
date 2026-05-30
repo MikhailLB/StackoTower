@@ -51,6 +51,8 @@ android/key.properties
 android/app/upload-keystore.jks
 android/app/*.jks
 android/app/*.keystore
+android/app/google-services.json
+build/debug_info/
 
 # Kotlin compiler session
 android/.kotlin/
