@@ -87,7 +87,7 @@ class _MainMenuScreenState extends State<MainMenuScreen>
       MaterialPageRoute<void>(
         builder: (_) => const InfoWebScreen(
           title: 'Privacy Policy',
-          url: 'https://stackotower.com/privacy-policy.html',
+          url: 'https://sttackotower.com/privacy-policy.html',
         ),
       ),
     );
@@ -99,7 +99,7 @@ class _MainMenuScreenState extends State<MainMenuScreen>
       MaterialPageRoute<void>(
         builder: (_) => const InfoWebScreen(
           title: 'Support',
-          url: 'https://stackotower.com/support.html',
+          url: 'https://sttackotower.com/support.html',
         ),
       ),
     );

@@ -1,7 +1,7 @@
 name: stacko_tower
 description: "StackoTower - stack falling blocks and build the tallest tower!"
 publish_to: 'none'
-version: 1.0.1+9
+version: 1.0.0+1
 
 environment:
   sdk: ^3.11.4
@@ -39,9 +39,7 @@ flutter:
 
 flutter_launcher_icons:
   android: true
-  ios: true
+  ios: false
   image_path: "assets/stacko_icon.png"
-  remove_alpha_ios: true
-  background_color_ios: "#1A1A2E"
   adaptive_icon_background: "#1A1A2E"
   adaptive_icon_foreground: "assets/stacko_icon.png"

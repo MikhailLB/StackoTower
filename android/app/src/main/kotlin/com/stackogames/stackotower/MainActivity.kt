@@ -1,4 +1,4 @@
-package krwl.stacko.tower
+package com.stackogames.stackotower
 
 import io.flutter.embedding.android.FlutterActivity
 
