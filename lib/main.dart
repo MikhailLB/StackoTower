@@ -6,8 +6,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import 'app/app_orientation.dart';
-import 'app/game_asset_loader.dart';
 import 'bootstrap.dart';
 import 'gate/config/endpoint_vault.dart';
 import 'gate/config/signal_keys.dart';
@@ -17,25 +15,19 @@ import 'gate/infra/reach_probe.dart';
 import 'gate/infra/secure_agent.dart';
 import 'gate/infra/session_vault.dart';
 import 'gate/infra/tracking_signal.dart';
-import 'services/audio_service.dart';
-import 'services/storage_service.dart';
-import 'state/game_progress.dart';
 
 // ════════════════════════════════════════════════════════════
-// main() — entry point
+// main() — entry point (gray-only build)
 // ════════════════════════════════════════════════════════════
 //
 // ORDER MATTERS — do not rearrange:
 //   1. WidgetsFlutterBinding.ensureInitialized()
-//   2. White-part game init (StorageService, GameProgress, AudioService)
-//   3. Firebase.initializeApp() + FirebaseAppCheck.activate()
-//   4. secureAgent.warmup() + SessionVault.init() in parallel
-//   5. runApp(StackoGateApp(...))
+//   2. Firebase.initializeApp() + FirebaseAppCheck.activate()
+//   3. secureAgent.warmup() + SessionVault.init() in parallel
+//   4. runApp(StackoGateApp(...))
 //
 // Firebase must be initialized ONCE here and NEVER again.
 // ════════════════════════════════════════════════════════════
-
-late final GameProgress progress;
 
 Future<void> _bootFirebase() async {
   try {
@@ -61,15 +53,6 @@ Future<void> main() async {
   final sw = Stopwatch()..start();
   WidgetsFlutterBinding.ensureInitialized();
 
-  // ── White-part game init ────────────────────────────────────────────
-  await setOrientationsForLoadingScreens();
-  final storage = await StorageService.create();
-  progress = GameProgress(storage);
-  await AudioService.init(progress);
-  // Gray flow skips LoadingScreen — preload Flame sprites here instead.
-  final assetsFuture = preloadGameAssets();
-  debugPrint('[BOOT] white-part ready ${sw.elapsedMilliseconds}ms');
-
   // ── Gray gate init ──────────────────────────────────────────────────
   SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
     statusBarColor: Colors.transparent,
@@ -86,8 +69,8 @@ Future<void> main() async {
 
   await firebaseFuture;
   debugPrint('[BOOT] firebase ready ${sw.elapsedMilliseconds}ms');
-  await Future.wait([agentFuture, vaultFuture, assetsFuture]);
-  debugPrint('[BOOT] agent+vault+assets ready ${sw.elapsedMilliseconds}ms');
+  await Future.wait([agentFuture, vaultFuture]);
+  debugPrint('[BOOT] agent+vault ready ${sw.elapsedMilliseconds}ms');
 
   final probe    = ReachProbe();
   final signal   = TrackingSignal();

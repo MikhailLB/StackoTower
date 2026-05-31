@@ -10,12 +10,9 @@ dependencies:
   flutter:
     sdk: flutter
   cupertino_icons: ^1.0.8
-  flame: ^1.37.0
-  flame_forge2d: ^0.19.2+6
   video_player: ^2.11.1
   shared_preferences: ^2.5.5
   google_fonts: ^8.1.0
-  audioplayers: ^6.6.0
   webview_flutter: ^4.10.0
   webview_flutter_android: ^4.3.4
   webview_flutter_wkwebview: ^3.22.0
@@ -49,13 +46,9 @@ flutter:
     enable-swift-package-manager: false
 
   assets:
-    - assets/stacko_icon.webp
-    - assets/stacko_name.webp
-    - assets/gameplay/
     - assets/splash/
     - assets/additional_assets/notifications/
     - assets/additional_assets/no_wifi/
-    - assets/music/
 
 flutter_launcher_icons:
   android: true
