@@ -1,22 +1,30 @@
 import 'package:flutter/material.dart';
 
 import 'app/app_theme.dart';
+import 'core/white_part.dart';
 import 'gate/infra/gate_dispatch.dart';
 import 'gate/infra/pulse_relay.dart';
 import 'gate/infra/reach_probe.dart';
 import 'gate/infra/session_vault.dart';
 import 'gate/infra/tracking_signal.dart';
-import 'gate/pages/no_signal_screen.dart';
 import 'gate/pages/splash_gate.dart';
+import 'game/route_level.dart';
+import 'screens/game_screen.dart';
+import 'screens/level_select_screen.dart';
+import 'screens/loading_screen.dart';
+import 'screens/main_menu_screen.dart';
+import 'screens/settings_screen.dart';
+import 'screens/shop_screen.dart';
 
 // ════════════════════════════════════════════════════════════
-// StackoGateApp — root widget (gray-only build)
+// StackoGateApp — root widget
 // ════════════════════════════════════════════════════════════
 //
-// The white-part game has been removed entirely. The app now only
-// ever serves the gray gate (SplashGate → ContentBrowser WebView).
-// When the gate is disabled (no credentials provisioned), there is
-// nothing to show, so we land on NoSignalScreen with a retry loop.
+// ⚠️  IMPORTANT: All white-part game routes MUST be registered
+// in the routes: map below. If your game uses named routes
+// (e.g. Navigator.pushNamed(context, '/menu')), they must exist
+// here or the app will crash with:
+//   "Could not find route RouteSettings('/menu', null)"
 // ════════════════════════════════════════════════════════════
 class StackoGateApp extends StatelessWidget {
   final SessionVault vault;
@@ -36,22 +44,17 @@ class StackoGateApp extends StatelessWidget {
     required this.gateEnabled,
   });
 
-  SplashGate _buildGate() => SplashGate(
-        vault: vault,
-        probe: probe,
-        signal: signal,
-        dispatch: dispatch,
-        pulse: pulse,
-      );
-
   @override
   Widget build(BuildContext context) {
     final Widget home = gateEnabled
-        ? _buildGate()
-        : NoSignalScreen(
+        ? SplashGate(
+            vault: vault,
             probe: probe,
-            retryBuilder: (_) => _buildGate(),
-          );
+            signal: signal,
+            dispatch: dispatch,
+            pulse: pulse,
+          )
+        : const WhitePartEntry();
 
     return MaterialApp(
       title: 'Stacko Tower',
@@ -68,6 +71,17 @@ class StackoGateApp extends StatelessWidget {
         ),
       ),
       home: home,
+      routes: {
+        // ── StackoTower white-part named routes ─────────────
+        '/loading':      (_) => const LoadingScreen(),
+        '/menu':         (_) => const MainMenuScreen(),
+        '/level-select': (_) => const LevelSelectScreen(),
+        // GameScreen always receives level from LevelSelectScreen via
+        // MaterialPageRoute — this named route fallback uses level 1.
+        '/game':         (_) => GameScreen(level: routeLevels.first),
+        '/settings':     (_) => const SettingsScreen(),
+        '/shop':         (_) => const ShopScreen(),
+      },
     );
   }
 }

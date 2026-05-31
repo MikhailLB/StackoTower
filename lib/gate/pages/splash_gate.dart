@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:video_player/video_player.dart';
 
+import '../../core/white_part.dart';
 import '../infra/gate_dispatch.dart';
 import '../infra/native_tap_bridge.dart';
 import '../infra/pulse_relay.dart';
@@ -328,26 +329,15 @@ class _SplashGateState extends State<SplashGate> {
     ));
   }
 
-  // ── NO-GRANT TERMINAL STATE ───────────────────────────────
-  // The white-part game has been removed. When the backend does not
-  // grant a destination (organic / unattributed user), there is no
-  // content to show, so we land on NoSignalScreen whose Retry button
-  // re-runs the gate pipeline.
+  // ── WHITE PART INTEGRATION POINT ──────────────────────────
+  // Navigates directly to MainMenuScreen — SplashGate already
+  // serves as the loading experience. Do NOT go to LoadingScreen.
   void _goGame() {
     if (_navigated) return;
     _navigated = true;
-    Navigator.of(context).pushReplacement(MaterialPageRoute(
-      builder: (_) => NoSignalScreen(
-        probe: widget.probe,
-        retryBuilder: (_) => SplashGate(
-          vault: widget.vault,
-          probe: widget.probe,
-          signal: widget.signal,
-          dispatch: widget.dispatch,
-          pulse: widget.pulse,
-        ),
-      ),
-    ));
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(builder: (_) => const WhitePartEntry()),
+    );
   }
 
   void _goOffline({required bool fresh}) {

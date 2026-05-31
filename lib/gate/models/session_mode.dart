@@ -1,10 +1,7 @@
 /// Persisted decision about how the app should route on each launch.
 ///
 /// - [web]     → open the WebView (returning user with a saved URL).
-/// - [game]    → no destination granted (organic / unattributed user).
-///              The white-part game was removed, so this now lands on
-///              NoSignalScreen; the value is kept for storage compatibility
-///              and to keep retrying web recovery on subsequent launches.
+/// - [game]    → open the white-part game (organic / unattributed user).
 /// - [fresh]   → no decision yet; full attribution pipeline will run.
 enum SessionMode {
   web,
