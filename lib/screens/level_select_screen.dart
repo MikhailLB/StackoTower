@@ -2,13 +2,15 @@
 
 import '../app/app_orientation.dart';
 import '../app/app_theme.dart';
-import '../game/level_config.dart';
+import '../game/route_level.dart';
 import '../main.dart';
 import '../services/audio_service.dart';
+import '../widgets/site_background.dart';
+import '../widgets/ui_kit.dart';
 import 'game_screen.dart';
 
-/// Grid of levels. Each card shows the level number, target blocks and coin
-/// reward. Locked levels (beyond [progress.highestUnlockedLevel]) are dimmed.
+/// Vertical "route map" of lots — each lot is a node on a path you progress
+/// along, distinct from a plain grid of buttons.
 class LevelSelectScreen extends StatefulWidget {
   const LevelSelectScreen({super.key});
 
@@ -21,246 +23,265 @@ class _LevelSelectScreenState extends State<LevelSelectScreen> {
   void initState() {
     super.initState();
     setOrientationsLockedPortrait();
-    progress.addListener(_onProgressChanged);
+    progress.addListener(_onChanged);
   }
 
   @override
   void dispose() {
-    progress.removeListener(_onProgressChanged);
+    progress.removeListener(_onChanged);
     super.dispose();
   }
 
-  void _onProgressChanged() {
+  void _onChanged() {
     if (mounted) setState(() {});
   }
 
-  Future<void> _startLevel(LevelConfig config) async {
+  Future<void> _startLevel(RouteLevel level) async {
     AudioService.instance.playSfx(Sfx.buttonClick);
     await Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => GameScreen(levelConfig: config),
-      ),
+      MaterialPageRoute<void>(builder: (_) => GameScreen(level: level)),
     );
     if (mounted) AudioService.instance.playBgm(Bgm.menu);
   }
 
   @override
   Widget build(BuildContext context) {
+    final solved = progress.completedLevels.length;
+    final total = routeLevels.length;
+
     return Scaffold(
-      body: Stack(
-        fit: StackFit.expand,
-        children: [
-          Container(
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [Color(0xFF1A1A3E), Color(0xFF0D0D1F)],
-              ),
-            ),
-          ),
-          SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-              child: Column(
-                children: [
-                  Row(
-                    children: [
-                      _BackButton(onTap: () {
+      body: SiteBackground(
+        child: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+            child: Column(
+              children: [
+                Row(
+                  children: [
+                    CircleIconButton(
+                      icon: Icons.arrow_back_rounded,
+                      onTap: () {
                         AudioService.instance.playSfx(Sfx.buttonClick);
                         Navigator.of(context).pop();
-                      }),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          'Select Level',
-                          textAlign: TextAlign.center,
-                          style: AppTextStyles.title(size: 32),
-                        ),
-                      ),
-                      _CoinPill(coins: progress.coins),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  Expanded(
-                    child: GridView.builder(
-                      gridDelegate:
-                          const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 3,
-                        crossAxisSpacing: 12,
-                        mainAxisSpacing: 12,
-                        childAspectRatio: 0.88,
-                      ),
-                      itemCount: levels.length,
-                      itemBuilder: (_, index) {
-                        final config = levels[index];
-                        final unlocked =
-                            progress.isLevelUnlocked(config.levelNumber);
-                        final completed =
-                            progress.isLevelCompleted(config.levelNumber);
-                        return _LevelCard(
-                          config: config,
-                          unlocked: unlocked,
-                          completed: completed,
-                          onTap: unlocked
-                              ? () => _startLevel(config)
-                              : null,
-                        );
                       },
                     ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _LevelCard extends StatelessWidget {
-  const _LevelCard({
-    required this.config,
-    required this.unlocked,
-    required this.completed,
-    required this.onTap,
-  });
-
-  final LevelConfig config;
-  final bool unlocked;
-  final bool completed;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final borderColor = completed
-        ? AppColors.accent
-        : (unlocked ? Colors.white38 : Colors.white12);
-    final bgColor = completed
-        ? AppColors.accent.withValues(alpha: 0.15)
-        : (unlocked
-            ? AppColors.panel
-            : AppColors.panel.withValues(alpha: 0.4));
-
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        decoration: BoxDecoration(
-          color: bgColor,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: borderColor, width: 2),
-          boxShadow: completed
-              ? [
-                  BoxShadow(
-                    color: AppColors.accent.withValues(alpha: 0.3),
-                    blurRadius: 8,
-                  )
-                ]
-              : null,
-        ),
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            if (!unlocked)
-              const Icon(Icons.lock_rounded,
-                  color: Colors.white38, size: 20)
-            else if (completed)
-              const Icon(Icons.check_circle_rounded,
-                  color: AppColors.accent, size: 20)
-            else
-              const Icon(Icons.play_circle_rounded,
-                  color: Colors.white70, size: 20),
-            const SizedBox(height: 4),
-            Text(
-              'Lv ${config.levelNumber}',
-              style: AppTextStyles.button(
-                size: 17,
-                color: unlocked ? AppColors.text : Colors.white38,
-              ),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              '${config.targetBlocks} blocks',
-              style: AppTextStyles.body(
-                size: 11,
-                color: unlocked ? Colors.white70 : Colors.white30,
-              ),
-            ),
-            const SizedBox(height: 2),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  Icons.monetization_on_rounded,
-                  color: unlocked ? AppColors.accent : Colors.white24,
-                  size: 11,
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('SITE PLAN',
+                              style: AppTextStyles.body(
+                                      size: 10, color: NeonColors.cyan)
+                                  .copyWith(letterSpacing: 3)),
+                          Text('Choose a Lot',
+                              style: AppTextStyles.title(size: 26)),
+                        ],
+                      ),
+                    ),
+                    CoinChip(coins: progress.coins),
+                  ],
                 ),
-                const SizedBox(width: 2),
-                Text(
-                  '${config.coinReward}',
-                  style: AppTextStyles.body(
-                    size: 11,
-                    color: unlocked ? AppColors.accent : Colors.white24,
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(4),
+                        child: LinearProgressIndicator(
+                          value: total == 0 ? 0 : solved / total,
+                          minHeight: 6,
+                          backgroundColor: Colors.white12,
+                          valueColor: const AlwaysStoppedAnimation<Color>(
+                              AppColors.accent),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Text('$solved/$total',
+                        style: AppTextStyles.button(
+                            size: 13, color: AppColors.accent)),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Expanded(
+                  child: ListView.builder(
+                    padding: const EdgeInsets.only(top: 6, bottom: 16),
+                    itemCount: routeLevels.length,
+                    itemBuilder: (_, index) {
+                      final level = routeLevels[index];
+                      return _RouteNode(
+                        level: level,
+                        unlocked: progress.isLevelUnlocked(level.levelNumber),
+                        completed:
+                            progress.isLevelCompleted(level.levelNumber),
+                        first: index == 0,
+                        last: index == routeLevels.length - 1,
+                        onTap: progress.isLevelUnlocked(level.levelNumber)
+                            ? () => _startLevel(level)
+                            : null,
+                      );
+                    },
                   ),
                 ),
               ],
             ),
-          ],
+          ),
         ),
       ),
     );
   }
 }
 
-class _BackButton extends StatelessWidget {
-  const _BackButton({required this.onTap});
-  final VoidCallback onTap;
+class _RouteNode extends StatelessWidget {
+  const _RouteNode({
+    required this.level,
+    required this.unlocked,
+    required this.completed,
+    required this.first,
+    required this.last,
+    required this.onTap,
+  });
+
+  final RouteLevel level;
+  final bool unlocked;
+  final bool completed;
+  final bool first;
+  final bool last;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: AppColors.panel,
-      shape: const CircleBorder(),
-      child: InkWell(
-        customBorder: const CircleBorder(),
-        onTap: onTap,
-        child: const SizedBox(
-          width: 44,
-          height: 44,
-          child: Icon(Icons.arrow_back_rounded,
-              color: AppColors.text, size: 26),
-        ),
-      ),
-    );
-  }
-}
+    final nodeColor = completed
+        ? AppColors.accent
+        : (unlocked ? NeonColors.violet : Colors.white24);
 
-class _CoinPill extends StatelessWidget {
-  const _CoinPill({required this.coins});
-  final int coins;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-      decoration: BoxDecoration(
-        color: AppColors.panel,
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: Colors.black26),
-      ),
+    return IntrinsicHeight(
       child: Row(
-        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Icon(Icons.monetization_on_rounded,
-              color: AppColors.accent, size: 20),
-          const SizedBox(width: 6),
-          Text('$coins', style: AppTextStyles.button(size: 16)),
+          // Connector + node
+          SizedBox(
+            width: 50,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                Positioned(
+                  top: first ? null : 0,
+                  bottom: last ? null : 0,
+                  child: Container(
+                    width: 3,
+                    color: unlocked
+                        ? AppColors.accent.withValues(alpha: 0.35)
+                        : Colors.white10,
+                  ),
+                ),
+                Container(
+                  width: 38,
+                  height: 38,
+                  decoration: BoxDecoration(
+                    color: completed
+                        ? AppColors.accent
+                        : NeonColors.cardFillDeep,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: nodeColor, width: 2),
+                    boxShadow: completed
+                        ? [
+                            BoxShadow(
+                                color: AppColors.accent.withValues(alpha: 0.5),
+                                blurRadius: 10)
+                          ]
+                        : null,
+                  ),
+                  child: Center(
+                    child: completed
+                        ? const Icon(Icons.check_rounded,
+                            color: AppColors.textDark, size: 20)
+                        : unlocked
+                            ? Text('${level.levelNumber}',
+                                style: AppTextStyles.button(
+                                    size: 15, color: AppColors.text))
+                            : const Icon(Icons.lock_rounded,
+                                color: Colors.white38, size: 16),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 10),
+          // Card
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 6),
+              child: NeonCard(
+                onTap: onTap,
+                glow: completed,
+                edge: completed ? AppColors.accent : NeonColors.violet,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            unlocked ? level.name : 'Locked',
+                            style: AppTextStyles.button(
+                              size: 17,
+                              color: unlocked ? AppColors.text : Colors.white38,
+                            ),
+                          ),
+                          const SizedBox(height: 3),
+                          Text(
+                            '${level.cols}×${level.rows} lot · ${level.plotCount} plots',
+                            style: AppTextStyles.body(
+                              size: 12,
+                              color:
+                                  unlocked ? AppColors.textMuted : Colors.white24,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.monetization_on_rounded,
+                                color:
+                                    unlocked ? AppColors.accent : Colors.white24,
+                                size: 14),
+                            const SizedBox(width: 3),
+                            Text('${level.coinReward}',
+                                style: AppTextStyles.button(
+                                  size: 14,
+                                  color: unlocked
+                                      ? AppColors.accent
+                                      : Colors.white24,
+                                )),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Icon(
+                          completed
+                              ? Icons.replay_rounded
+                              : (unlocked
+                                  ? Icons.play_arrow_rounded
+                                  : Icons.lock_rounded),
+                          color: unlocked ? AppColors.text : Colors.white24,
+                          size: 20,
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
         ],
       ),
     );
   }
 }
-

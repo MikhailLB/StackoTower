@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:flame/flame.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -53,7 +52,6 @@ class _LoadingScreenState extends State<LoadingScreen>
 
   Future<void> _initialise() async {
     final start = DateTime.now();
-    Flame.images.prefix = '';
 
     await _initVideos();
     if (!mounted) return;
@@ -131,7 +129,6 @@ class _LoadingScreenState extends State<LoadingScreen>
   }
 
   Future<void> _preloadGameAssets() async {
-    Flame.images.prefix = '';
     final paths = <String>[
       StackoAssets.sky,
       StackoAssets.ground,
@@ -145,8 +142,9 @@ class _LoadingScreenState extends State<LoadingScreen>
       for (var i = 1; i <= 4; i++) StackoAssets.loadingBar(i),
     ];
     for (final p in paths) {
+      if (!mounted) break;
       try {
-        await Flame.images.load(p);
+        await precacheImage(AssetImage(p), context);
       } catch (e) {
         debugPrint('LoadingScreen: failed to preload $p: $e');
       }

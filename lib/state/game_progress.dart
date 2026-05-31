@@ -9,15 +9,12 @@ class GameProgress extends ChangeNotifier {
         _highScore = _storage.highScore,
         _highestUnlockedLevel = _storage.highestUnlockedLevel,
         _completedLevels = Set<int>.from(_storage.completedLevels),
-        _slowHookBoosts = _storage.slowHookBoosts,
-        _secondChanceBoosts = _storage.secondChanceBoosts,
+        _skipBoosts = _storage.skipBoosts,
         _doubleCoinsBoosts = _storage.doubleCoinsBoosts,
-        _ghostBlockBoosts = _storage.ghostBlockBoosts,
-        _speedFreezeBoosts = _storage.speedFreezeBoosts,
-        _wideBaseBoosts = _storage.wideBaseBoosts,
         _luckyBoosts = _storage.luckyBoosts,
         _ownedSkins = List<int>.from(_storage.ownedSkins),
         _selectedSkin = _storage.selectedSkin,
+        _tutorialSeen = _storage.tutorialSeen,
         _soundEnabled = _storage.soundEnabled,
         _musicEnabled = _storage.musicEnabled,
         _vibrationEnabled = _storage.vibrationEnabled,
@@ -30,15 +27,12 @@ class GameProgress extends ChangeNotifier {
   int _highScore;
   int _highestUnlockedLevel;
   final Set<int> _completedLevels;
-  int _slowHookBoosts;
-  int _secondChanceBoosts;
+  int _skipBoosts;
   int _doubleCoinsBoosts;
-  int _ghostBlockBoosts;
-  int _speedFreezeBoosts;
-  int _wideBaseBoosts;
   int _luckyBoosts;
   List<int> _ownedSkins;
   int _selectedSkin;
+  bool _tutorialSeen;
   bool _soundEnabled;
   bool _musicEnabled;
   bool _vibrationEnabled;
@@ -49,15 +43,12 @@ class GameProgress extends ChangeNotifier {
   int get highScore => _highScore;
   int get highestUnlockedLevel => _highestUnlockedLevel;
   Set<int> get completedLevels => Set.unmodifiable(_completedLevels);
-  int get slowHookBoosts => _slowHookBoosts;
-  int get secondChanceBoosts => _secondChanceBoosts;
+  int get skipBoosts => _skipBoosts;
   int get doubleCoinsBoosts => _doubleCoinsBoosts;
-  int get ghostBlockBoosts => _ghostBlockBoosts;
-  int get speedFreezeBoosts => _speedFreezeBoosts;
-  int get wideBaseBoosts => _wideBaseBoosts;
   int get luckyBoosts => _luckyBoosts;
   List<int> get ownedSkins => List.unmodifiable(_ownedSkins);
   int get selectedSkin => _selectedSkin;
+  bool get tutorialSeen => _tutorialSeen;
   bool get soundEnabled => _soundEnabled;
   bool get musicEnabled => _musicEnabled;
   bool get vibrationEnabled => _vibrationEnabled;
@@ -121,32 +112,27 @@ class GameProgress extends ChangeNotifier {
     notifyListeners();
   }
 
-  // --- Boosts: grant / consume ---
+  // --- Tutorial ---
 
-  Future<void> grantSlowHook(int amount) async {
-    _slowHookBoosts += amount;
-    await _storage.setSlowHookBoosts(_slowHookBoosts);
+  Future<void> setTutorialSeen() async {
+    if (_tutorialSeen) return;
+    _tutorialSeen = true;
+    await _storage.setTutorialSeen(true);
     notifyListeners();
   }
 
-  Future<bool> consumeSlowHook() async {
-    if (_slowHookBoosts <= 0) return false;
-    _slowHookBoosts--;
-    await _storage.setSlowHookBoosts(_slowHookBoosts);
-    notifyListeners();
-    return true;
-  }
+  // --- Power-ups: grant / consume ---
 
-  Future<void> grantSecondChance(int amount) async {
-    _secondChanceBoosts += amount;
-    await _storage.setSecondChanceBoosts(_secondChanceBoosts);
+  Future<void> grantSkip(int amount) async {
+    _skipBoosts += amount;
+    await _storage.setSkipBoosts(_skipBoosts);
     notifyListeners();
   }
 
-  Future<bool> consumeSecondChance() async {
-    if (_secondChanceBoosts <= 0) return false;
-    _secondChanceBoosts--;
-    await _storage.setSecondChanceBoosts(_secondChanceBoosts);
+  Future<bool> consumeSkip() async {
+    if (_skipBoosts <= 0) return false;
+    _skipBoosts--;
+    await _storage.setSkipBoosts(_skipBoosts);
     notifyListeners();
     return true;
   }
@@ -161,48 +147,6 @@ class GameProgress extends ChangeNotifier {
     if (_doubleCoinsBoosts <= 0) return false;
     _doubleCoinsBoosts--;
     await _storage.setDoubleCoinsBoosts(_doubleCoinsBoosts);
-    notifyListeners();
-    return true;
-  }
-
-  Future<void> grantGhostBlock(int amount) async {
-    _ghostBlockBoosts += amount;
-    await _storage.setGhostBlockBoosts(_ghostBlockBoosts);
-    notifyListeners();
-  }
-
-  Future<bool> consumeGhostBlock() async {
-    if (_ghostBlockBoosts <= 0) return false;
-    _ghostBlockBoosts--;
-    await _storage.setGhostBlockBoosts(_ghostBlockBoosts);
-    notifyListeners();
-    return true;
-  }
-
-  Future<void> grantSpeedFreeze(int amount) async {
-    _speedFreezeBoosts += amount;
-    await _storage.setSpeedFreezeBoosts(_speedFreezeBoosts);
-    notifyListeners();
-  }
-
-  Future<bool> consumeSpeedFreeze() async {
-    if (_speedFreezeBoosts <= 0) return false;
-    _speedFreezeBoosts--;
-    await _storage.setSpeedFreezeBoosts(_speedFreezeBoosts);
-    notifyListeners();
-    return true;
-  }
-
-  Future<void> grantWideBase(int amount) async {
-    _wideBaseBoosts += amount;
-    await _storage.setWideBaseBoosts(_wideBaseBoosts);
-    notifyListeners();
-  }
-
-  Future<bool> consumeWideBase() async {
-    if (_wideBaseBoosts <= 0) return false;
-    _wideBaseBoosts--;
-    await _storage.setWideBaseBoosts(_wideBaseBoosts);
     notifyListeners();
     return true;
   }

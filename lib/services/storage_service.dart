@@ -11,13 +11,10 @@ class StorageService {
   static const _kSelectedSkin = 'st_selected_skin';
   static const _kHighestUnlockedLevel = 'st_highest_unlocked_level';
   static const _kCompletedLevels = 'st_completed_levels';
-  // Boosts
-  static const _kBoostSlowHook = 'st_boost_slow_hook';
-  static const _kBoostSecondChance = 'st_boost_second_chance';
+  static const _kTutorialSeen = 'st_tutorial_seen';
+  // Power-ups
+  static const _kBoostSkip = 'st_boost_skip';
   static const _kBoostDoubleCoins = 'st_boost_double_coins';
-  static const _kBoostGhostBlock = 'st_boost_ghost_block';
-  static const _kBoostSpeedFreeze = 'st_boost_speed_freeze';
-  static const _kBoostWideBase = 'st_boost_wide_base';
   static const _kBoostLucky = 'st_boost_lucky';
   // Audio
   static const _kSoundEnabled = 'st_sound_enabled';
@@ -70,13 +67,10 @@ class StorageService {
       (_prefs.getStringList(_kCompletedLevels) ?? const [])
           .map(int.parse)
           .toSet();
-  int get slowHookBoosts => _prefs.getInt(_kBoostSlowHook) ?? 0;
-  int get secondChanceBoosts => _prefs.getInt(_kBoostSecondChance) ?? 0;
+  int get skipBoosts => _prefs.getInt(_kBoostSkip) ?? 0;
   int get doubleCoinsBoosts => _prefs.getInt(_kBoostDoubleCoins) ?? 0;
-  int get ghostBlockBoosts => _prefs.getInt(_kBoostGhostBlock) ?? 0;
-  int get speedFreezeBoosts => _prefs.getInt(_kBoostSpeedFreeze) ?? 0;
-  int get wideBaseBoosts => _prefs.getInt(_kBoostWideBase) ?? 0;
   int get luckyBoosts => _prefs.getInt(_kBoostLucky) ?? 0;
+  bool get tutorialSeen => _prefs.getBool(_kTutorialSeen) ?? false;
   bool get soundEnabled => _prefs.getBool(_kSoundEnabled) ?? true;
   bool get musicEnabled => _prefs.getBool(_kMusicEnabled) ?? true;
   bool get vibrationEnabled => _prefs.getBool(_kVibrationEnabled) ?? true;
@@ -98,17 +92,11 @@ class StorageService {
         _kCompletedLevels,
         levels.map((e) => e.toString()).toList(),
       );
-  Future<void> setSlowHookBoosts(int v) => _prefs.setInt(_kBoostSlowHook, v);
-  Future<void> setSecondChanceBoosts(int v) =>
-      _prefs.setInt(_kBoostSecondChance, v);
+  Future<void> setSkipBoosts(int v) => _prefs.setInt(_kBoostSkip, v);
   Future<void> setDoubleCoinsBoosts(int v) =>
       _prefs.setInt(_kBoostDoubleCoins, v);
-  Future<void> setGhostBlockBoosts(int v) =>
-      _prefs.setInt(_kBoostGhostBlock, v);
-  Future<void> setSpeedFreezeBoosts(int v) =>
-      _prefs.setInt(_kBoostSpeedFreeze, v);
-  Future<void> setWideBaseBoosts(int v) => _prefs.setInt(_kBoostWideBase, v);
   Future<void> setLuckyBoosts(int v) => _prefs.setInt(_kBoostLucky, v);
+  Future<void> setTutorialSeen(bool v) => _prefs.setBool(_kTutorialSeen, v);
   Future<void> setSoundEnabled(bool v) => _prefs.setBool(_kSoundEnabled, v);
   Future<void> setMusicEnabled(bool v) => _prefs.setBool(_kMusicEnabled, v);
   Future<void> setVibrationEnabled(bool v) =>
