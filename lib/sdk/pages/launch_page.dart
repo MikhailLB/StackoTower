@@ -12,7 +12,7 @@ import '../infra/msg_hub.dart';
 import '../infra/net_probe.dart';
 import '../infra/data_store.dart';
 import '../infra/attribution.dart';
-import '../models/app_mode.dart';
+import '../models/wire.dart';
 import 'consent_screen.dart';
 import 'offline_screen.dart';
 import 'web_viewer.dart';

@@ -1,6 +1,6 @@
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../models/app_mode.dart';
+import '../models/wire.dart';
 
 class DataStore {
   static const _kMode    = 'a.m';

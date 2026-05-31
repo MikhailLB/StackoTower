@@ -1,7 +1,5 @@
 import 'dart:io';
-import 'api_keys.dart';
-import 'evt_keys.dart';
-import 'app_links.dart';
+import 'secrets.dart';
 
 abstract final class RemoteConfig {
   static const String iosStoreId = '6771214956';

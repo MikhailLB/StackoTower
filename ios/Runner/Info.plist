@@ -28,32 +28,24 @@
 	<false/>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
-	<!-- Gray gate: push notifications background delivery -->
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>fetch</string>
 		<string>remote-notification</string>
 	</array>
-	<!-- Gray gate: Firebase swizzling for cold-start push -->
 	<key>FirebaseAppDelegateProxyEnabled</key>
 	<true/>
-	<!-- Gray gate: ATT dialog for AppsFlyer attribution -->
 	<key>NSUserTrackingUsageDescription</key>
 	<string>Your data will be used to provide you with a better and more personalised experience.</string>
-	<!-- Gray gate: WebView loads external content -->
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<key>NSAllowsArbitraryLoadsInWebContent</key>
 		<true/>
 	</dict>
-	<!-- Gray gate: WebView file upload permissions -->
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>This app needs access to your photo library to upload files.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>This app needs access to your camera to upload photos.</string>
-	<key>NSMicrophoneUsageDescription</key>
-	<string>This app needs access to your microphone for media playback.</string>
-	<!-- Gray gate: external URL schemes -->
 	<key>LSApplicationQueriesSchemes</key>
 	<array>
 		<string>https</string>

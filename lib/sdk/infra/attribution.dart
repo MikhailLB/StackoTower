@@ -7,7 +7,7 @@ import 'package:appsflyer_sdk/appsflyer_sdk.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 
-import '../config/api_keys.dart';
+import '../config/secrets.dart';
 import '../config/remote_config.dart';
 import 'app_client.dart';
 

@@ -1,6 +1,6 @@
 import 'dart:convert';
 import '../config/remote_config.dart';
-import '../models/remote_reply.dart';
+import '../models/wire.dart';
 import 'app_client.dart';
 import 'data_store.dart';
 

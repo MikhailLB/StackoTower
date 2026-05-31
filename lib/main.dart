@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 
 import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -8,8 +8,7 @@ import 'package:flutter/services.dart';
 
 import 'app/app_orientation.dart';
 import 'bootstrap.dart';
-import 'sdk/config/api_keys.dart';
-import 'sdk/config/evt_keys.dart';
+import 'sdk/config/secrets.dart';
 import 'sdk/infra/app_client.dart';
 import 'sdk/infra/attribution.dart';
 import 'sdk/infra/data_store.dart';

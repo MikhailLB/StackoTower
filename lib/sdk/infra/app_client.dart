@@ -1,7 +1,7 @@
 import 'dart:io';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:http/http.dart' as http;
-import '../config/api_keys.dart';
+import '../config/secrets.dart';
 
 String _buildAndroidUa({
   required int sdk,

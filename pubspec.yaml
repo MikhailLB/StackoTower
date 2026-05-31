@@ -1,7 +1,7 @@
 name: stacko_tower
 description: "Stacko Tower - pave roads and connect every plot on the map!"
 publish_to: 'none'
-version: 1.0.1+12
+version: 1.0.3+14
 
 environment:
   sdk: ^3.11.4

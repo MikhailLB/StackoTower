@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -92,12 +93,12 @@ class _LoadingScreenState extends State<LoadingScreen>
       try {
         await portrait.play();
       } catch (e) {
-        debugPrint('LoadingScreen: portrait play() failed: $e');
+        if (kDebugMode) debugPrint('LoadingScreen: portrait play() failed: $e');
       }
       try {
         await landscape.play();
       } catch (e) {
-        debugPrint('LoadingScreen: landscape play() failed: $e');
+        if (kDebugMode) debugPrint('LoadingScreen: landscape play() failed: $e');
       }
 
       _portraitListener = () => _restartIfFinished(portrait);
@@ -108,7 +109,7 @@ class _LoadingScreenState extends State<LoadingScreen>
       _portraitVideo = portrait;
       _landscapeVideo = landscape;
     } catch (e, st) {
-      debugPrint('LoadingScreen: video init failed: $e\n$st');
+      if (kDebugMode) debugPrint('LoadingScreen: video init failed: $e\n$st');
     }
   }
 
@@ -146,7 +147,7 @@ class _LoadingScreenState extends State<LoadingScreen>
       try {
         await precacheImage(AssetImage(p), context);
       } catch (e) {
-        debugPrint('LoadingScreen: failed to preload $p: $e');
+        if (kDebugMode) debugPrint('LoadingScreen: failed to preload $p: $e');
       }
     }
     try {
@@ -157,7 +158,7 @@ class _LoadingScreenState extends State<LoadingScreen>
         GoogleFonts.fredoka(),
       ]);
     } catch (e) {
-      debugPrint('LoadingScreen: Google Fonts preload failed: $e');
+      if (kDebugMode) debugPrint('LoadingScreen: Google Fonts preload failed: $e');
     }
   }
 
