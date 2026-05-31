@@ -1,26 +1,24 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../config/gate_config.dart';
-import '../infra/pulse_relay.dart';
-import '../infra/reach_probe.dart';
-import '../infra/session_vault.dart';
-import 'content_browser.dart';
+import '../config/remote_config.dart';
+import '../infra/msg_hub.dart';
+import '../infra/net_probe.dart';
+import '../infra/data_store.dart';
+import 'web_viewer.dart';
 
-/// Push permission offer screen. Shows a static branded background image
-/// (portrait or landscape) with Accept / Skip buttons.
-class PermitScreen extends StatefulWidget {
-  final SessionVault vault;
-  final PulseRelay pulse;
-  final ReachProbe probe;
+class ConsentScreen extends StatefulWidget {
+  final DataStore store;
+  final MsgHub hub;
+  final NetProbe probe;
   final String destination;
   final bool coldStartPush;
   final Future<void> Function(String token)? onTokenReady;
 
-  const PermitScreen({
+  const ConsentScreen({
     super.key,
-    required this.vault,
-    required this.pulse,
+    required this.store,
+    required this.hub,
     required this.probe,
     required this.destination,
     this.coldStartPush = false,
@@ -28,10 +26,10 @@ class PermitScreen extends StatefulWidget {
   });
 
   @override
-  State<PermitScreen> createState() => _PermitScreenState();
+  State<ConsentScreen> createState() => _ConsentScreenState();
 }
 
-class _PermitScreenState extends State<PermitScreen>
+class _ConsentScreenState extends State<ConsentScreen>
     with TickerProviderStateMixin, WidgetsBindingObserver {
   bool _busy = false;
   late final AnimationController _shimmer;
@@ -57,8 +55,6 @@ class _PermitScreenState extends State<PermitScreen>
 
   @override
   void didChangeMetrics() {
-    // Rebuild when immersive mode hides system UI — same cold-start layout
-    // issue as ContentBrowser (gray_flow_guide §2).
     if (mounted) setState(() {});
   }
 
@@ -74,16 +70,16 @@ class _PermitScreenState extends State<PermitScreen>
     if (_busy) return;
     setState(() => _busy = true);
     try {
-      final granted = await widget.pulse.askConsent();
+      final granted = await widget.hub.askConsent();
       if (granted) {
-        final token = await widget.pulse.refreshTokenAfterConsent();
+        final token = await widget.hub.refreshTokenAfterConsent();
         if (token != null && token.isNotEmpty) {
           await widget.onTokenReady?.call(token);
         }
       } else {
         await _setCooldown();
       }
-      _openBrowser();
+      _openViewer();
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -92,22 +88,22 @@ class _PermitScreenState extends State<PermitScreen>
   Future<void> _skip() async {
     if (_busy) return;
     await _setCooldown();
-    _openBrowser();
+    _openViewer();
   }
 
   Future<void> _setCooldown() async {
     final until = DateTime.now().millisecondsSinceEpoch ~/ 1000 +
-        GateConfig.pushCooldownSeconds;
-    await widget.vault.writePushCooldown(until);
+        RemoteConfig.cooldownSecs;
+    await widget.store.writePushCooldown(until);
   }
 
-  void _openBrowser() {
+  void _openViewer() {
     if (!mounted) return;
     Navigator.of(context).pushReplacement(MaterialPageRoute(
-      builder: (_) => ContentBrowser(
+      builder: (_) => WebViewer(
         destination: widget.destination,
-        vault: widget.vault,
-        pulse: widget.pulse,
+        store: widget.store,
+        hub: widget.hub,
         probe: widget.probe,
         coldStartPush: widget.coldStartPush,
       ),
@@ -142,7 +138,7 @@ class _PermitScreenState extends State<PermitScreen>
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        _AcceptButton(
+                        _OkButton(
                           width: btnW,
                           busy: _busy,
                           shimmer: _shimmer,
@@ -151,7 +147,7 @@ class _PermitScreenState extends State<PermitScreen>
                           compact: landscape,
                         ),
                         SizedBox(height: mq.size.height * 0.022),
-                        _SkipButton(onTap: _skip, compact: landscape),
+                        _CancelButton(onTap: _skip, compact: landscape),
                       ],
                     ),
                   ),
@@ -165,22 +161,22 @@ class _PermitScreenState extends State<PermitScreen>
   }
 }
 
-class _AcceptButton extends StatefulWidget {
+class _OkButton extends StatefulWidget {
   final double width;
   final bool busy;
   final bool compact;
   final AnimationController shimmer;
   final AnimationController glow;
   final VoidCallback onTap;
-  const _AcceptButton({
+  const _OkButton({
     required this.width, required this.busy, required this.shimmer,
     required this.glow, required this.onTap, this.compact = false,
   });
   @override
-  State<_AcceptButton> createState() => _AcceptButtonState();
+  State<_OkButton> createState() => _OkButtonState();
 }
 
-class _AcceptButtonState extends State<_AcceptButton>
+class _OkButtonState extends State<_OkButton>
     with SingleTickerProviderStateMixin {
   bool _pressed = false;
   late final AnimationController _press = AnimationController(
@@ -244,15 +240,15 @@ class _AcceptButtonState extends State<_AcceptButton>
   }
 }
 
-class _SkipButton extends StatefulWidget {
+class _CancelButton extends StatefulWidget {
   final VoidCallback onTap;
   final bool compact;
-  const _SkipButton({required this.onTap, this.compact = false});
+  const _CancelButton({required this.onTap, this.compact = false});
   @override
-  State<_SkipButton> createState() => _SkipButtonState();
+  State<_CancelButton> createState() => _CancelButtonState();
 }
 
-class _SkipButtonState extends State<_SkipButton> {
+class _CancelButtonState extends State<_CancelButton> {
   bool _pressed = false;
   @override
   Widget build(BuildContext context) {

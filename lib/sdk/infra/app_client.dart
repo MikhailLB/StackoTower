@@ -1,7 +1,7 @@
 import 'dart:io';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:http/http.dart' as http;
-import '../config/endpoint_vault.dart';
+import '../config/api_keys.dart';
 
 String _buildAndroidUa({
   required int sdk,
@@ -11,22 +11,20 @@ String _buildAndroidUa({
 }) =>
     'Mozilla/5.0 (Linux; Android $sdk; $brand $model Build/$build) '
     'AppleWebKit/537.36 (KHTML, like Gecko) '
-    'Chrome/${uaChromeBuild()} Mobile Safari/537.36';
+    'Chrome/${chromeBuild()} Mobile Safari/537.36';
 
 String _buildIosUa(String ver) {
   final dotless = ver.replaceAll('.', '_');
   return 'Mozilla/5.0 (iPhone; CPU iPhone OS $dotless like Mac OS X) '
-      'AppleWebKit/${uaSafariBuild()} (KHTML, like Gecko) '
-      'Version/$ver Mobile/15E148 Safari/${uaSafariBuild()}';
+      'AppleWebKit/${safariBuild()} (KHTML, like Gecko) '
+      'Version/$ver Mobile/15E148 Safari/${safariBuild()}';
 }
 
 String _fallbackUa() => Platform.isAndroid
     ? _buildAndroidUa(sdk: 14, brand: 'Google', model: 'Pixel 8', build: 'UP1A.231005.007')
     : _buildIosUa('17.4');
 
-/// HTTP client that injects a realistic mobile-browser User-Agent on every
-/// outbound request. UA is built from actual device info so it varies per device.
-class SecureAgent extends http.BaseClient {
+class AppClient extends http.BaseClient {
   final http.Client _inner = http.Client();
   String _ua = '';
 
@@ -68,4 +66,4 @@ class SecureAgent extends http.BaseClient {
   void close() => _inner.close();
 }
 
-final secureAgent = SecureAgent();
+final appClient = AppClient();

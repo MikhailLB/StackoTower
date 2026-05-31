@@ -1,5 +1,5 @@
 name: stacko_tower
-description: "StackoTower - stack falling blocks and build the tallest tower!"
+description: "Stacko Tower - pave roads and connect every plot on the map!"
 publish_to: 'none'
 version: 1.0.1+12
 

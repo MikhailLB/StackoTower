@@ -1,40 +1,37 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:firebase_messaging/firebase_messaging.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
-import 'secure_agent.dart';
-import 'session_vault.dart';
+import 'app_client.dart';
+import 'data_store.dart';
 
-const _channelId    = 'stk_push_channel';
-const _channelLabel = 'Stacko Tower Updates';
-const _iconRes      = '@drawable/ic_stk_notification';
+const _chId    = 'ntf_1';
+const _chLabel = 'Updates';
+const _iconRes = '@drawable/ic_ntf';
 
 @pragma('vm:entry-point')
-Future<void> _bgMessageHandler(RemoteMessage _) async {}
+Future<void> _bgHandler(RemoteMessage _) async {}
 
-/// Top-level handler for taps on locally-displayed notifications when the
-/// Dart isolate isn't alive. Stashes the URL so SplashGate can consume it.
 @pragma('vm:entry-point')
-Future<void> pulseLocalTapHandler(NotificationResponse resp) async {
+Future<void> _notifTapHandler(NotificationResponse resp) async {
   final payload = resp.payload;
   if (payload == null || payload.isEmpty) return;
   try {
     final d = jsonDecode(payload);
     if (d is Map && d['url'] is String && (d['url'] as String).isNotEmpty) {
-      await SessionVault().stashOneShotUrl(d['url'] as String);
+      await DataStore().stashOneShotUrl(d['url'] as String);
     }
   } catch (_) {}
 }
 
-/// FCM + flutter_local_notifications wrapper for StackoTower.
-class PulseRelay {
+class MsgHub {
   final FlutterLocalNotificationsPlugin _tray =
       FlutterLocalNotificationsPlugin();
-  final SessionVault _vault;
-  final Completer<void> _coldStartGate = Completer<void>();
+  final DataStore _store;
+  final Completer<void> _coldReady = Completer<void>();
 
   FirebaseMessaging? _fcm;
   String? _token;
@@ -45,22 +42,20 @@ class PulseRelay {
   void Function(String url)? onPushUrl;
   void Function(String token)? onTokenRefresh;
 
-  PulseRelay(this._vault);
+  MsgHub(this._store);
 
   String? get token => _token;
   bool get ready => _ready;
 
-  /// Resolves once the iOS cold-start getInitialMessage round-trip has run.
-  Future<void> get coldStartReady => _coldStartGate.future;
+  Future<void> get coldStartReady => _coldReady.future;
 
-  Future<void> bootstrap() => _bootFuture ??= _doBootstrap();
+  Future<void> bootstrap() => _bootFuture ??= _boot();
 
-  Future<void> _doBootstrap() async {
+  Future<void> _boot() async {
     try {
       _fcm = FirebaseMessaging.instance;
-      // Capture cold-start tap FIRST — before any other async work.
       await _captureColdStart();
-      FirebaseMessaging.onBackgroundMessage(_bgMessageHandler);
+      FirebaseMessaging.onBackgroundMessage(_bgHandler);
       await _setupTray();
       try {
         await _fcm!.setForegroundNotificationPresentationOptions(
@@ -86,11 +81,9 @@ class PulseRelay {
       }
       _token = await _fcm!.getToken();
       _ready = true;
-      debugPrint('[STK.PR] bootstrap OK token=${_token == null ? 'null' : 'present'}');
-    } catch (err, st) {
-      debugPrint('[STK.PR] bootstrap error: $err\n$st');
+    } catch (_) {
     } finally {
-      if (!_coldStartGate.isCompleted) _coldStartGate.complete();
+      if (!_coldReady.isCompleted) _coldReady.complete();
     }
   }
 
@@ -102,14 +95,11 @@ class PulseRelay {
       );
       if (msg != null) {
         final url = _extractUrl(msg);
-        if (url != null) {
-          await _vault.stashOneShotUrl(url);
-          debugPrint('[STK.PR] cold-start url stashed');
-        }
+        if (url != null) await _store.stashOneShotUrl(url);
       }
-    } catch (_) {}
-    finally {
-      if (!_coldStartGate.isCompleted) _coldStartGate.complete();
+    } catch (_) {
+    } finally {
+      if (!_coldReady.isCompleted) _coldReady.complete();
     }
   }
 
@@ -154,18 +144,17 @@ class PulseRelay {
         try {
           final d = jsonDecode(payload);
           if (d is Map && d['url'] is String) {
-            _dispatchUrl(d['url'] as String, from: 'tray');
+            _dispatchUrl(d['url'] as String);
           }
         } catch (_) {}
       },
-      onDidReceiveBackgroundNotificationResponse: pulseLocalTapHandler,
+      onDidReceiveBackgroundNotificationResponse: _notifTapHandler,
     );
     if (Platform.isAndroid) {
       final impl = _tray.resolvePlatformSpecificImplementation<
           AndroidFlutterLocalNotificationsPlugin>();
       await impl?.createNotificationChannel(const AndroidNotificationChannel(
-        _channelId, _channelLabel,
-        description: 'Stacko Tower real-time updates',
+        _chId, _chLabel,
         importance: Importance.high,
       ));
     }
@@ -185,10 +174,10 @@ class PulseRelay {
       final s = await m.getNotificationSettings();
       final st = s.authorizationStatus;
       if (st == AuthorizationStatus.denied) {
-        await _vault.writePushCooldown(
+        await _store.writePushCooldown(
           DateTime.now().millisecondsSinceEpoch ~/ 1000 + 365 * 24 * 3600,
         );
-        await _vault.writePushConsent(false);
+        await _store.writePushConsent(false);
       }
       return st == AuthorizationStatus.notDetermined ||
           st == AuthorizationStatus.provisional;
@@ -217,23 +206,23 @@ class PulseRelay {
             AndroidFlutterLocalNotificationsPlugin>();
         if (impl != null) {
           final already = await impl.areNotificationsEnabled();
-          if (already == true) { await _vault.writePushConsent(true); return true; }
+          if (already == true) { await _store.writePushConsent(true); return true; }
           final ok = (await impl.requestNotificationsPermission()) ?? false;
-          await _vault.writePushConsent(ok);
+          await _store.writePushConsent(ok);
           return ok;
         }
       }
       final settings = await _fcm!.getNotificationSettings();
       final st = settings.authorizationStatus;
       if (st == AuthorizationStatus.denied) {
-        await _vault.writePushCooldown(
+        await _store.writePushCooldown(
           DateTime.now().millisecondsSinceEpoch ~/ 1000 + 365 * 24 * 3600,
         );
-        await _vault.writePushConsent(false);
+        await _store.writePushConsent(false);
         return false;
       }
       if (st == AuthorizationStatus.authorized) {
-        await _vault.writePushConsent(true);
+        await _store.writePushConsent(true);
         return true;
       }
       final result = await _fcm!.requestPermission(
@@ -242,14 +231,13 @@ class PulseRelay {
       final ok = result.authorizationStatus == AuthorizationStatus.authorized ||
           result.authorizationStatus == AuthorizationStatus.provisional;
       if (!ok && result.authorizationStatus == AuthorizationStatus.denied) {
-        await _vault.writePushCooldown(
+        await _store.writePushCooldown(
           DateTime.now().millisecondsSinceEpoch ~/ 1000 + 365 * 24 * 3600,
         );
       }
-      await _vault.writePushConsent(ok);
+      await _store.writePushConsent(ok);
       return ok;
-    } catch (err) {
-      debugPrint('[STK.PR] askConsent error: $err');
+    } catch (_) {
       return false;
     }
   }
@@ -273,7 +261,7 @@ class PulseRelay {
     final notif = msg.notification;
     if (notif == null) {
       final url = _extractUrl(msg);
-      if (url != null) _dispatchUrl(url, from: 'fg-data');
+      if (url != null) _dispatchUrl(url);
       return;
     }
     final imageUrl = msg.notification?.android?.imageUrl;
@@ -282,7 +270,7 @@ class PulseRelay {
       final bytes = await _fetchImage(imageUrl);
       if (bytes != null) {
         androidDetails = AndroidNotificationDetails(
-          _channelId, _channelLabel,
+          _chId, _chLabel,
           importance: Importance.high, priority: Priority.high,
           icon: _iconRes,
           styleInformation: BigPictureStyleInformation(
@@ -294,7 +282,7 @@ class PulseRelay {
       }
     }
     androidDetails ??= const AndroidNotificationDetails(
-      _channelId, _channelLabel,
+      _chId, _chLabel,
       importance: Importance.high, priority: Priority.high,
       icon: _iconRes,
     );
@@ -313,23 +301,21 @@ class PulseRelay {
 
   void _onBgTap(RemoteMessage msg) {
     final url = _extractUrl(msg);
-    if (url != null) _dispatchUrl(url, from: 'bg-tap');
+    if (url != null) _dispatchUrl(url);
   }
 
-  void _dispatchUrl(String url, {required String from}) {
+  void _dispatchUrl(String url) {
     final cb = onPushUrl;
     if (cb != null) {
-      debugPrint('[STK.PR] dispatch ($from) → live browser');
       cb(url);
     } else {
-      debugPrint('[STK.PR] dispatch ($from) → stash');
-      _vault.stashOneShotUrl(url);
+      _store.stashOneShotUrl(url);
     }
   }
 
   Future<Uint8List?> _fetchImage(String url) async {
     try {
-      final r = await secureAgent
+      final r = await appClient
           .get(Uri.parse(url))
           .timeout(const Duration(seconds: 10));
       if (r.statusCode == 200) return r.bodyBytes;

@@ -5,49 +5,41 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:video_player/video_player.dart';
 
-import '../../core/white_part.dart';
-import '../infra/gate_dispatch.dart';
-import '../infra/native_tap_bridge.dart';
-import '../infra/pulse_relay.dart';
-import '../infra/reach_probe.dart';
-import '../infra/session_vault.dart';
-import '../infra/tracking_signal.dart';
-import '../models/session_mode.dart';
-import 'content_browser.dart';
-import 'no_signal_screen.dart';
-import 'permit_screen.dart';
+import '../../core/game_home.dart';
+import '../infra/remote_client.dart';
+import '../infra/link_bridge.dart';
+import '../infra/msg_hub.dart';
+import '../infra/net_probe.dart';
+import '../infra/data_store.dart';
+import '../infra/attribution.dart';
+import '../models/app_mode.dart';
+import 'consent_screen.dart';
+import 'offline_screen.dart';
+import 'web_viewer.dart';
 
 enum _BarStep { empty, midway, done }
 
-/// ★ Core gray gate screen. Shows the loading splash video while running
-/// the attribution + config pipeline, then routes to either WebView (gray)
-/// or the existing game (white).
-///
-/// Flow:
-///   fresh → network check → AppsFlyer warmup → POST config → web or game
-///   web   → fast refresh → web (or game if server says no)
-///   game  → optional re-attempt → game
-class SplashGate extends StatefulWidget {
-  final SessionVault vault;
-  final ReachProbe probe;
-  final TrackingSignal signal;
-  final GateDispatch dispatch;
-  final PulseRelay pulse;
+class LaunchPage extends StatefulWidget {
+  final DataStore store;
+  final NetProbe probe;
+  final Attribution signal;
+  final RemoteClient client;
+  final MsgHub hub;
 
-  const SplashGate({
+  const LaunchPage({
     super.key,
-    required this.vault,
+    required this.store,
     required this.probe,
     required this.signal,
-    required this.dispatch,
-    required this.pulse,
+    required this.client,
+    required this.hub,
   });
 
   @override
-  State<SplashGate> createState() => _SplashGateState();
+  State<LaunchPage> createState() => _LaunchPageState();
 }
 
-class _SplashGateState extends State<SplashGate> {
+class _LaunchPageState extends State<LaunchPage> {
   VideoPlayerController? _vid;
   bool _vidReady = false;
   _BarStep _bar = _BarStep.empty;
@@ -93,26 +85,13 @@ class _SplashGateState extends State<SplashGate> {
   void _setBar(_BarStep s) { if (mounted) setState(() => _bar = s); }
 
   Future<void> _boot() async {
-    widget.pulse.onTokenRefresh = _onTokenRefresh;
+    widget.hub.onTokenRefresh = _onTokenRefresh;
 
-    // ── HIGHEST PRIORITY: SceneDelegate cold-start URL ─────────────────
-    // When the app is KILLED and the user taps a push notification, iOS
-    // delivers the tap through SceneDelegate.scene(_:willConnectTo:options:)
-    // BEFORE any Dart code runs. Firebase's getInitialMessage() does NOT
-    // receive this tap on scene-based apps (flutterfire#8896). SceneDelegate
-    // writes the URL to UserDefaults under flutter.stk_gate_tap_url.
-    // We read and clear it HERE — before push bootstrap, before network check,
-    // before attribution — so the URL is NEVER lost to a timeout race.
-    final nativeColdUrl = await NativeTapBridge.consumeTapUrl();
+    final nativeColdUrl = await LinkBridge.consumeTapUrl();
     if (nativeColdUrl != null && nativeColdUrl.isNotEmpty) {
-      debugPrint('[STK.SG] native cold-start url → $nativeColdUrl');
-      await widget.vault.writeMode(SessionMode.web);
-      // Clear one-shot stash so the Firebase path doesn't double-navigate
-      await widget.vault.consumeOneShotUrl();
-      // Fire attribution in background — never block the user
+      await widget.store.writeMode(AppMode.web);
+      await widget.store.consumeOneShotUrl();
       unawaited(_dispatchBackground());
-      // Apply immersive before navigation so ContentBrowser opens with
-      // settled system UI (StackoTower Info.plist must not force-hide status bar).
       SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
@@ -122,25 +101,25 @@ class _SplashGateState extends State<SplashGate> {
     }
 
     _setBar(_BarStep.empty);
-    final mode = widget.vault.readMode();
+    final mode = widget.store.readMode();
 
     switch (mode) {
-      case SessionMode.web:
+      case AppMode.web:
         _setBar(_BarStep.midway);
-        final pushFuture = widget.pulse.bootstrap().catchError((_) {});
+        final pushFuture = widget.hub.bootstrap().catchError((_) {});
         await _handleWebMode(pushFuture: pushFuture);
         break;
-      case SessionMode.game:
+      case AppMode.game:
         _setBar(_BarStep.midway);
-        unawaited(widget.pulse.bootstrap().catchError((_) {}));
+        unawaited(widget.hub.bootstrap().catchError((_) {}));
         final recovered = await _tryRecoverWebMode();
         if (recovered) return;
         _setBar(_BarStep.done);
         await Future.delayed(const Duration(milliseconds: 600));
         _goGame();
         break;
-      case SessionMode.fresh:
-        await widget.pulse.bootstrap().catchError((_) {});
+      case AppMode.fresh:
+        await widget.hub.bootstrap().catchError((_) {});
         await _handleFreshMode();
         break;
     }
@@ -148,16 +127,15 @@ class _SplashGateState extends State<SplashGate> {
 
   @override
   void dispose() {
-    widget.pulse.onTokenRefresh = null;
+    widget.hub.onTokenRefresh = null;
     _vid?.dispose();
     super.dispose();
   }
 
-  /// Best-effort attribution ping after cold-start express lane.
   Future<void> _dispatchBackground() async {
     try {
       await Future.wait([
-        widget.pulse.bootstrap().catchError((_) {}),
+        widget.hub.bootstrap().catchError((_) {}),
         widget.signal.warmup().catchError((_) {}),
       ]);
       await Future.wait([
@@ -166,12 +144,10 @@ class _SplashGateState extends State<SplashGate> {
       ]);
       final body = await widget.signal.buildPayload(
         locale: Platform.localeName.replaceAll('-', '_'),
-        pushToken: widget.pulse.token,
+        pushToken: widget.hub.token,
       );
-      await widget.dispatch.send(body);
-    } catch (e) {
-      debugPrint('[STK.SG] background dispatch error: $e');
-    }
+      await widget.client.send(body);
+    } catch (_) {}
   }
 
   void _onTokenRefresh(String token) async {
@@ -179,7 +155,7 @@ class _SplashGateState extends State<SplashGate> {
     final body = await widget.signal.buildPayload(
       locale: locale, pushToken: token,
     );
-    widget.dispatch.send(body);
+    widget.client.send(body);
   }
 
   Future<void> _handleFreshMode() async {
@@ -195,18 +171,18 @@ class _SplashGateState extends State<SplashGate> {
     ]);
     final locale = Platform.localeName.replaceAll('-', '_');
     final body = await widget.signal.buildPayload(
-      locale: locale, pushToken: widget.pulse.token,
+      locale: locale, pushToken: widget.hub.token,
     );
-    final reply = await widget.dispatch.send(body);
+    final reply = await widget.client.send(body);
 
     if (reply.granted && reply.destination != null) {
-      await widget.vault.writeMode(SessionMode.web);
+      await widget.store.writeMode(AppMode.web);
       _setBar(_BarStep.done);
       await Future.delayed(const Duration(milliseconds: 400));
       if (!mounted) return;
       _goContent(reply.destination!);
     } else {
-      await widget.vault.writeMode(SessionMode.game);
+      await widget.store.writeMode(AppMode.game);
       _setBar(_BarStep.done);
       await Future.delayed(const Duration(milliseconds: 400));
       if (!mounted) return;
@@ -226,7 +202,7 @@ class _SplashGateState extends State<SplashGate> {
       return;
     }
 
-    final oneShotUrl = await widget.vault.consumeOneShotUrl();
+    final oneShotUrl = await widget.store.consumeOneShotUrl();
     if (oneShotUrl != null) {
       _setBar(_BarStep.done);
       await Future.delayed(const Duration(milliseconds: 400));
@@ -235,7 +211,7 @@ class _SplashGateState extends State<SplashGate> {
     }
 
     final signalFuture = widget.signal.warmup();
-    final savedUrl = await widget.vault.readSavedUrl();
+    final savedUrl = await widget.store.readSavedUrl();
     await signalFuture;
     await Future.wait([
       widget.signal.awaitConversion(timeout: const Duration(seconds: 5)),
@@ -243,9 +219,9 @@ class _SplashGateState extends State<SplashGate> {
     ]);
     final locale = Platform.localeName.replaceAll('-', '_');
     final body = await widget.signal.buildPayload(
-      locale: locale, pushToken: widget.pulse.token,
+      locale: locale, pushToken: widget.hub.token,
     );
-    final reply = await widget.dispatch.send(body);
+    final reply = await widget.client.send(body);
 
     _setBar(_BarStep.done);
     await Future.delayed(const Duration(milliseconds: 400));
@@ -272,11 +248,11 @@ class _SplashGateState extends State<SplashGate> {
     ]);
     final locale = Platform.localeName.replaceAll('-', '_');
     final body = await widget.signal.buildPayload(
-      locale: locale, pushToken: widget.pulse.token,
+      locale: locale, pushToken: widget.hub.token,
     );
-    final reply = await widget.dispatch.send(body);
+    final reply = await widget.client.send(body);
     if (!(reply.granted && reply.destination != null)) return false;
-    await widget.vault.writeMode(SessionMode.web);
+    await widget.store.writeMode(AppMode.web);
     _setBar(_BarStep.done);
     await Future.delayed(const Duration(milliseconds: 400));
     if (!mounted) return true;
@@ -287,14 +263,14 @@ class _SplashGateState extends State<SplashGate> {
   void _goContent(String url, {bool coldStartPush = false}) {
     if (_navigated) return;
     _navigated = true;
-    if (widget.vault.needsPushPrompt()) {
-      widget.pulse.shouldOfferConsent().then((canAsk) {
+    if (widget.store.needsPushPrompt()) {
+      widget.hub.shouldOfferConsent().then((canAsk) {
         if (!mounted) return;
         if (canAsk) {
           Navigator.of(context).pushReplacement(MaterialPageRoute(
-            builder: (_) => PermitScreen(
-              vault: widget.vault,
-              pulse: widget.pulse,
+            builder: (_) => ConsentScreen(
+              store: widget.store,
+              hub: widget.hub,
               probe: widget.probe,
               destination: url,
               coldStartPush: coldStartPush,
@@ -303,40 +279,37 @@ class _SplashGateState extends State<SplashGate> {
                 final body = await widget.signal.buildPayload(
                   locale: locale, pushToken: token,
                 );
-                widget.dispatch.send(body);
+                widget.client.send(body);
               },
             ),
           ));
         } else {
-          _directBrowser(url, coldStartPush: coldStartPush);
+          _directViewer(url, coldStartPush: coldStartPush);
         }
       });
     } else {
-      _directBrowser(url, coldStartPush: coldStartPush);
+      _directViewer(url, coldStartPush: coldStartPush);
     }
   }
 
-  void _directBrowser(String url, {bool coldStartPush = false}) {
+  void _directViewer(String url, {bool coldStartPush = false}) {
     if (!mounted) return;
     Navigator.of(context).pushReplacement(MaterialPageRoute(
-      builder: (_) => ContentBrowser(
+      builder: (_) => WebViewer(
         destination: url,
-        vault: widget.vault,
-        pulse: widget.pulse,
+        store: widget.store,
+        hub: widget.hub,
         probe: widget.probe,
         coldStartPush: coldStartPush,
       ),
     ));
   }
 
-  // ── WHITE PART INTEGRATION POINT ──────────────────────────
-  // Navigates directly to MainMenuScreen — SplashGate already
-  // serves as the loading experience. Do NOT go to LoadingScreen.
   void _goGame() {
     if (_navigated) return;
     _navigated = true;
     Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => const WhitePartEntry()),
+      MaterialPageRoute(builder: (_) => const GameHome()),
     );
   }
 
@@ -344,14 +317,14 @@ class _SplashGateState extends State<SplashGate> {
     if (_navigated) return;
     _navigated = true;
     Navigator.of(context).pushReplacement(MaterialPageRoute(
-      builder: (_) => NoSignalScreen(
+      builder: (_) => OfflineScreen(
         probe: widget.probe,
-        retryBuilder: (_) => SplashGate(
-          vault: widget.vault,
+        retryBuilder: (_) => LaunchPage(
+          store: widget.store,
           probe: widget.probe,
           signal: widget.signal,
-          dispatch: widget.dispatch,
-          pulse: widget.pulse,
+          client: widget.client,
+          hub: widget.hub,
         ),
       ),
     ));

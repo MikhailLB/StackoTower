@@ -1,20 +1,17 @@
-/// Decoded response from the remote gate endpoint.
-/// Accepts several alternative field names so the client works with
-/// slightly different backend conventions without code changes.
-class GateReply {
+class RemoteReply {
   final bool granted;
   final String? destination;
   final String? note;
   final int? expiresAt;
 
-  const GateReply._({
+  const RemoteReply._({
     required this.granted,
     this.destination,
     this.note,
     this.expiresAt,
   });
 
-  factory GateReply.fromMap(Map<String, dynamic> raw) {
+  factory RemoteReply.fromMap(Map<String, dynamic> raw) {
     final granted = (raw['ok'] as bool?)        ??
                     (raw['granted'] as bool?)    ??
                     (raw['accepted'] as bool?)   ??
@@ -39,7 +36,7 @@ class GateReply {
       expires = int.tryParse(ttl);
     }
 
-    return GateReply._(
+    return RemoteReply._(
       granted: granted,
       destination: destination,
       note: note,
@@ -47,6 +44,6 @@ class GateReply {
     );
   }
 
-  factory GateReply.declined(String reason) =>
-      GateReply._(granted: false, note: reason);
+  factory RemoteReply.declined(String reason) =>
+      RemoteReply._(granted: false, note: reason);
 }

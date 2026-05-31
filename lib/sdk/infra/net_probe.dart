@@ -1,9 +1,7 @@
 import 'dart:io';
 import 'package:connectivity_plus/connectivity_plus.dart';
 
-/// Connectivity checker that performs a real DNS lookup before reporting
-/// the device as online — avoids false-positives on captive portals.
-class ReachProbe {
+class NetProbe {
   final Connectivity _conn = Connectivity();
 
   Future<bool> isOnline() async {

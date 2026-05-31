@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 import 'dart:io';
 
 import 'package:connectivity_plus/connectivity_plus.dart';
@@ -10,38 +10,35 @@ import 'package:webview_flutter/webview_flutter.dart';
 import 'package:webview_flutter_android/webview_flutter_android.dart';
 import 'package:webview_flutter_wkwebview/webview_flutter_wkwebview.dart';
 
-import '../infra/pulse_relay.dart';
-import '../infra/reach_probe.dart';
-import '../infra/secure_agent.dart';
-import '../infra/session_vault.dart';
-import 'no_signal_screen.dart';
+import '../infra/msg_hub.dart';
+import '../infra/net_probe.dart';
+import '../infra/app_client.dart';
+import '../infra/data_store.dart';
+import 'offline_screen.dart';
 
-/// In-app WebView browser with full-screen immersive mode, keyboard scroll
-/// fixes and safe-area compensation.
-class ContentBrowser extends StatefulWidget {
+class WebViewer extends StatefulWidget {
   final String destination;
-  final SessionVault vault;
-  final PulseRelay pulse;
-  final ReachProbe probe;
+  final DataStore store;
+  final MsgHub hub;
+  final NetProbe probe;
   final VoidCallback? onFirstPaint;
-  /// True when opened from a killed-app push tap express lane.
   final bool coldStartPush;
 
-  const ContentBrowser({
+  const WebViewer({
     super.key,
     required this.destination,
-    required this.vault,
-    required this.pulse,
+    required this.store,
+    required this.hub,
     required this.probe,
     this.onFirstPaint,
     this.coldStartPush = false,
   });
 
   @override
-  State<ContentBrowser> createState() => _ContentBrowserState();
+  State<WebViewer> createState() => _WebViewerState();
 }
 
-class _ContentBrowserState extends State<ContentBrowser>
+class _WebViewerState extends State<WebViewer>
     with WidgetsBindingObserver {
   late final WebViewController _wv;
   StreamSubscription<List<ConnectivityResult>>? _connSub;
@@ -57,7 +54,6 @@ class _ContentBrowserState extends State<ContentBrowser>
   void _applyImmersive() =>
       SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
 
-  /// Micro-rotation — same fix as manually rotating the device (guide §2).
   Future<void> _nudgeOrientationLayout() async {
     if (!Platform.isIOS) return;
     await SystemChrome.setPreferredOrientations([
@@ -81,7 +77,6 @@ class _ContentBrowserState extends State<ContentBrowser>
     await Future.delayed(const Duration(milliseconds: 250));
   }
 
-  /// Force WKWebView + Flutter layout to recalculate after immersive settles.
   Future<void> _recalcViewport({bool reload = false}) async {
     if (!mounted) return;
     setState(() {});
@@ -99,7 +94,6 @@ class _ContentBrowserState extends State<ContentBrowser>
   void _scheduleImmersiveSettle() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _applyImmersive();
-      // Rebuild at 100ms / 300ms — viewPadding updates once status bar hides.
       Future.delayed(const Duration(milliseconds: 100), () {
         if (mounted) setState(() {});
       });
@@ -121,9 +115,6 @@ class _ContentBrowserState extends State<ContentBrowser>
 
   @override
   void didChangeMetrics() {
-    // Rebuild once immersiveSticky hides the status bar / home indicator.
-    // Without this, viewPadding stays stale on cold-start push tap until the
-    // user rotates the device — same root cause as gray_flow_guide §2.
     if (mounted) setState(() {});
   }
 
@@ -159,7 +150,7 @@ class _ContentBrowserState extends State<ContentBrowser>
 
     _wv = WebViewController.fromPlatformCreationParams(params)
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
-      ..setUserAgent(secureAgent.userAgent)
+      ..setUserAgent(appClient.userAgent)
       ..setBackgroundColor(Colors.black)
       ..enableZoom(false)
       ..setNavigationDelegate(_buildDelegate());
@@ -167,8 +158,6 @@ class _ContentBrowserState extends State<ContentBrowser>
     _configurePlatform();
 
     if (widget.coldStartPush) {
-      // Do NOT mount WKWebView until window metrics are final — otherwise
-      // the native view bakes a narrow centred viewport (black letterboxing).
       _prepareColdStartSurface().then((_) {
         if (!mounted) return;
         setState(() => _surfaceReady = true);
@@ -180,7 +169,7 @@ class _ContentBrowserState extends State<ContentBrowser>
       _startLoad();
     }
 
-    widget.pulse.onPushUrl = (url) {
+    widget.hub.onPushUrl = (url) {
       if (!mounted) return;
       try {
         final uri = Uri.parse(url);
@@ -198,7 +187,7 @@ class _ContentBrowserState extends State<ContentBrowser>
   }
 
   Future<void> _drainStash() async {
-    final url = await widget.vault.consumeOneShotUrl();
+    final url = await widget.store.consumeOneShotUrl();
     if (url != null && url.isNotEmpty && mounted) {
       try {
         final uri = Uri.parse(url);
@@ -216,16 +205,8 @@ class _ContentBrowserState extends State<ContentBrowser>
         _injectKeyboardFix();
         _injectAntiZoom();
         _injectMediaAutoplay();
-        // On cold-start (app killed в†’ push tap), the WKWebView renders before
-        // SystemUiMode.immersiveSticky has settled. The viewport dimensions
-        // are calculated while the status bar / home indicator are still
-        // visible, making the page look stretched. Dispatching a synthetic
-        // resize event ~800ms later forces the site to recalculate its layout
-        // after immersive mode is fully applied вЂ” same effect as rotating the
-        // device but without user intervention.
         Future.delayed(const Duration(milliseconds: 800), () {
-          final needsReload =
-              widget.coldStartPush && !_coldReloadDone;
+          final needsReload = widget.coldStartPush && !_coldReloadDone;
           if (needsReload) _coldReloadDone = true;
           _recalcViewport(reload: needsReload);
         });
@@ -318,12 +299,12 @@ class _ContentBrowserState extends State<ContentBrowser>
     final current = await _wv.currentUrl() ?? widget.destination;
     if (!mounted) return;
     Navigator.of(context).pushReplacement(MaterialPageRoute(
-      builder: (_) => NoSignalScreen(
+      builder: (_) => OfflineScreen(
         probe: widget.probe,
-        retryBuilder: (_) => ContentBrowser(
+        retryBuilder: (_) => WebViewer(
           destination: current,
-          vault: widget.vault,
-          pulse: widget.pulse,
+          store: widget.store,
+          hub: widget.hub,
           probe: widget.probe,
         ),
       ),
@@ -440,7 +421,7 @@ class _ContentBrowserState extends State<ContentBrowser>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _connSub?.cancel();
-    widget.pulse.onPushUrl = null;
+    widget.hub.onPushUrl = null;
     SystemChrome.setEnabledSystemUIMode(
       SystemUiMode.manual, overlays: SystemUiOverlay.values,
     );

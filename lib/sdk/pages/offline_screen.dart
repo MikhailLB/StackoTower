@@ -1,23 +1,23 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../infra/reach_probe.dart';
+import '../infra/net_probe.dart';
 
-class NoSignalScreen extends StatefulWidget {
+class OfflineScreen extends StatefulWidget {
   final WidgetBuilder retryBuilder;
-  final ReachProbe probe;
+  final NetProbe probe;
 
-  const NoSignalScreen({
+  const OfflineScreen({
     super.key,
     required this.retryBuilder,
     required this.probe,
   });
 
   @override
-  State<NoSignalScreen> createState() => _NoSignalScreenState();
+  State<OfflineScreen> createState() => _OfflineScreenState();
 }
 
-class _NoSignalScreenState extends State<NoSignalScreen>
+class _OfflineScreenState extends State<OfflineScreen>
     with SingleTickerProviderStateMixin {
   bool _busy = false;
   bool _hint = false;
