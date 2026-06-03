@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "53303715843",
+    "project_id": "stackotower-1d4ed",
+    "storage_bucket": "stackotower-1d4ed.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:53303715843:android:d999a1ea809ba744d78636",
+        "android_client_info": {
+          "package_name": "com.stackogames.stackotower"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBTO2AemgJsHddyMySLzVGhYxVfylCEKFg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
