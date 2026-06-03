@@ -1,6 +1,10 @@
 class StackoAssets {
   static const _gameplay = 'assets/gameplay';
   static const _splash = 'assets/splash';
+  static const _noWifi = 'assets/additional_assets/no_wifi';
+
+  static const noWifiPortrait = '$_noWifi/9x16_no_wifi_screen.webp';
+  static const noWifiLandscape = '$_noWifi/16x9_no_wifi_screen.webp';
 
   static const sky = '$_gameplay/sky_bg.webp';
   static const ground = '$_gameplay/ground_bg.webp';

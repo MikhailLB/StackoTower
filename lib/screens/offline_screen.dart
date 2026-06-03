@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../app/stacko_assets.dart';
+
 class OfflineScreen extends StatefulWidget {
   final WidgetBuilder retryScreenBuilder;
 
@@ -50,17 +52,19 @@ class _OfflineScreenState extends State<OfflineScreen>
     final size = MediaQuery.of(context).size;
     final isLandscape = size.width > size.height;
 
-    // The nowifi.png already has the wifi icon, title and subtitle baked in.
-    // Flutter only adds a functional Retry button — no duplicate text.
-    const bgAsset = 'assets/additional_assets/no_wifi/nowifi.png';
+    // Orientation-specific background — each image has the icon, title and
+    // subtitle baked in at the right aspect ratio, so Flutter only adds the
+    // functional Retry button without any duplicate text.
+    final bgAsset = isLandscape
+        ? StackoAssets.noWifiLandscape
+        : StackoAssets.noWifiPortrait;
 
     // Button sizing — larger in landscape so it reads well on wide screens.
     final btnWidth = isLandscape ? size.width * 0.40 : size.width * 0.70;
     final btnHeight = isLandscape ? 62.0 : 56.0;
     final btnFontSize = isLandscape ? 21.0 : 17.0;
 
-    // Vertical position: the image draws the button at ~87 % height in portrait
-    // and roughly ~83 % in landscape (image proportions change under cover fit).
+    // Vertical position aligned to the drawn button area in each image.
     final btnBottom = isLandscape ? size.height * 0.08 : size.height * 0.09;
 
     return Scaffold(
@@ -72,7 +76,7 @@ class _OfflineScreenState extends State<OfflineScreen>
           Image.asset(
             bgAsset,
             fit: BoxFit.cover,
-            errorBuilder: (_, __, ___) =>
+            errorBuilder: (context, error, stack) =>
                 const ColoredBox(color: Color(0xFF0D1B2A)),
           ),
 
