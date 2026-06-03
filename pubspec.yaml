@@ -15,7 +15,6 @@ dependencies:
   google_fonts: ^8.1.0
   audioplayers: ^6.6.0
   webview_flutter: ^4.10.0
-  connectivity_plus: ^7.1.1
 
 dev_dependencies:
   flutter_test:
