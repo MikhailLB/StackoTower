@@ -1,6 +1,9 @@
 class StackoAssets {
   static const _gameplay = 'assets/gameplay';
   static const _splash = 'assets/splash';
+  static const _extra = 'assets/additional_assets';
+
+  static const noWifi = '$_extra/no_wifi/nowifi.png';
 
   static const sky = '$_gameplay/sky_bg.webp';
   static const ground = '$_gameplay/ground_bg.webp';
