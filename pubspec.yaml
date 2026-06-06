@@ -10,7 +10,6 @@ dependencies:
   flutter:
     sdk: flutter
   cupertino_icons: ^1.0.8
-  video_player: ^2.11.1
   shared_preferences: ^2.5.5
   google_fonts: ^8.1.0
   webview_flutter: ^4.10.0
@@ -26,8 +25,8 @@ flutter:
   uses-material-design: true
 
   assets:
-    - assets/stacko_icon.webp
-    - assets/stacko_name.webp
+    - assets/logo.webp
+    - assets/Game_Name.webp
     - assets/gameplay/
     - assets/splash/
     - assets/additional_assets/notifications/
@@ -36,8 +35,8 @@ flutter:
 flutter_launcher_icons:
   android: true
   ios: true
-  image_path: "assets/stacko_icon.png"
+  image_path: "assets/logo.png"
   remove_alpha_ios: true
   background_color_ios: "#1A1A2E"
   adaptive_icon_background: "#1A1A2E"
-  adaptive_icon_foreground: "assets/stacko_icon.png"
+  adaptive_icon_foreground: "assets/logo.png"

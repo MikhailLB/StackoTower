@@ -3,15 +3,14 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:video_player/video_player.dart';
 
 import '../app/app_orientation.dart';
 import '../app/stacko_assets.dart';
 import 'main_menu_screen.dart';
 
-/// Splash screen that plays a looping promo video and shows a 4-state
-/// loading bar while game assets warm up. Supports both portrait and
-/// landscape orientations — picks the matching video automatically.
+/// Splash screen using static PNG background images (portrait & landscape).
+/// Shows an animated "Loading…" text and a 4-state progress bar while game
+/// assets warm up, then navigates to [MainMenuScreen].
 class LoadingScreen extends StatefulWidget {
   const LoadingScreen({super.key});
 
@@ -20,21 +19,18 @@ class LoadingScreen extends StatefulWidget {
 }
 
 class _LoadingScreenState extends State<LoadingScreen>
-    with SingleTickerProviderStateMixin {
-  VideoPlayerController? _portraitVideo;
-  VideoPlayerController? _landscapeVideo;
-  bool _videosReady = false;
-  bool _showBar = false;
+    with TickerProviderStateMixin {
   bool _hasNavigated = false;
 
-  VoidCallback? _portraitListener;
-  VoidCallback? _landscapeListener;
-
-  late final AnimationController _progressController;
-
-  static const _minDuration = Duration(milliseconds: 6000);
-  static const _barDelay = Duration(milliseconds: 120);
+  // Bar cycles 1 → 2 → 3 → 4 over [_barDuration].
+  late final AnimationController _barCtrl;
   static const _barDuration = Duration(milliseconds: 4500);
+
+  // "Loading…" dots: 0 → 1 → 2 → 3 dots, cycling every 500 ms.
+  late final AnimationController _dotsCtrl;
+  int _dots = 0;
+
+  static const _minDuration = Duration(milliseconds: 5500);
 
   @override
   void initState() {
@@ -42,123 +38,62 @@ class _LoadingScreenState extends State<LoadingScreen>
     setOrientationsForLoadingScreens();
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
 
-    _progressController = AnimationController(
-      vsync: this,
-      duration: _barDuration,
-    );
+    _barCtrl = AnimationController(vsync: this, duration: _barDuration);
 
-    _initialise();
+    _dotsCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 500),
+    )..addStatusListener((status) {
+        if (status == AnimationStatus.completed) {
+          if (mounted) setState(() => _dots = (_dots + 1) % 4);
+          _dotsCtrl.forward(from: 0);
+        }
+      });
+
+    _run();
   }
 
-  Future<void> _initialise() async {
+  Future<void> _run() async {
     final start = DateTime.now();
 
-    await _initVideos();
-    if (!mounted) return;
-    setState(() => _videosReady = true);
+    // Kick off the bar and dots animations immediately.
+    _barCtrl.forward();
+    _dotsCtrl.forward(from: 0);
 
-    await Future<void>.delayed(_barDelay);
-    if (!mounted) return;
-    setState(() => _showBar = true);
+    // Preload game assets while the bar plays.
+    await _preload();
 
-    final barFuture = _progressController.forward();
-    final assetsFuture = _preloadGameAssets();
-
-    await Future.wait([barFuture, assetsFuture]);
-
+    // Wait for bar to finish + ensure minimum splash time.
+    await _barCtrl.forward();
     final elapsed = DateTime.now().difference(start);
     if (elapsed < _minDuration) {
       await Future<void>.delayed(_minDuration - elapsed);
     }
 
-    await Future<void>.delayed(const Duration(milliseconds: 300));
     _goToMenu();
   }
 
-  Future<void> _initVideos() async {
-    try {
-      final portrait =
-          VideoPlayerController.asset(StackoAssets.splashPortrait);
-      final landscape =
-          VideoPlayerController.asset(StackoAssets.splashLandscape);
-
-      await Future.wait([portrait.initialize(), landscape.initialize()]);
-
-      portrait.setLooping(true);
-      landscape.setLooping(true);
-      portrait.setVolume(0);
-      landscape.setVolume(0);
-
-      try {
-        await portrait.play();
-      } catch (e) {
-        debugPrint('LoadingScreen: portrait play() failed: $e');
-      }
-      try {
-        await landscape.play();
-      } catch (e) {
-        debugPrint('LoadingScreen: landscape play() failed: $e');
-      }
-
-      _portraitListener = () => _restartIfFinished(portrait);
-      _landscapeListener = () => _restartIfFinished(landscape);
-      portrait.addListener(_portraitListener!);
-      landscape.addListener(_landscapeListener!);
-
-      _portraitVideo = portrait;
-      _landscapeVideo = landscape;
-    } catch (e, st) {
-      debugPrint('LoadingScreen: video init failed: $e\n$st');
-    }
-  }
-
-  void _restartIfFinished(VideoPlayerController c) {
-    final value = c.value;
-    if (!value.isInitialized) return;
-    if (value.isPlaying) return;
-    if (value.position < value.duration) return;
-    c.seekTo(Duration.zero);
-    c.play();
-  }
-
-  void _kickIfNotPlaying(VideoPlayerController? c) {
-    if (c == null) return;
-    if (!c.value.isInitialized) return;
-    if (c.value.isPlaying) return;
-    c.play();
-  }
-
-  Future<void> _preloadGameAssets() async {
-    final paths = <String>[
-      StackoAssets.sky,
-      StackoAssets.ground,
-      StackoAssets.cloud,
-      StackoAssets.hook,
+  Future<void> _preload() async {
+    final assets = <String>[
       StackoAssets.startBg,
       StackoAssets.startBuilding,
-      StackoAssets.icon,
       StackoAssets.gameName,
+      StackoAssets.icon,
       ...StackoAssets.allBlocks,
       for (var i = 1; i <= 4; i++) StackoAssets.loadingBar(i),
     ];
-    for (final p in paths) {
-      if (!mounted) break;
+    for (final path in assets) {
+      if (!mounted) return;
       try {
-        await precacheImage(AssetImage(p), context);
-      } catch (e) {
-        debugPrint('LoadingScreen: failed to preload $p: $e');
-      }
+        await precacheImage(AssetImage(path), context);
+      } catch (_) {}
     }
+    // Warm up fonts so the main menu doesn't flash a fallback font.
     try {
+      GoogleFonts.nunito();
       GoogleFonts.bangers();
-      GoogleFonts.fredoka();
-      await GoogleFonts.pendingFonts(<TextStyle>[
-        GoogleFonts.bangers(),
-        GoogleFonts.fredoka(),
-      ]);
-    } catch (e) {
-      debugPrint('LoadingScreen: Google Fonts preload failed: $e');
-    }
+      await GoogleFonts.pendingFonts([GoogleFonts.nunito(), GoogleFonts.bangers()]);
+    } catch (_) {}
   }
 
   void _goToMenu() {
@@ -166,8 +101,7 @@ class _LoadingScreenState extends State<LoadingScreen>
     _hasNavigated = true;
     Navigator.of(context).pushReplacement(
       PageRouteBuilder(
-        pageBuilder: (context, animation, secondary) =>
-            const MainMenuScreen(),
+        pageBuilder: (context, animation, secondary) => const MainMenuScreen(),
         transitionDuration: const Duration(milliseconds: 600),
         transitionsBuilder: (context, animation, secondary, child) =>
             FadeTransition(opacity: animation, child: child),
@@ -177,15 +111,8 @@ class _LoadingScreenState extends State<LoadingScreen>
 
   @override
   void dispose() {
-    if (_portraitListener != null) {
-      _portraitVideo?.removeListener(_portraitListener!);
-    }
-    if (_landscapeListener != null) {
-      _landscapeVideo?.removeListener(_landscapeListener!);
-    }
-    _portraitVideo?.dispose();
-    _landscapeVideo?.dispose();
-    _progressController.dispose();
+    _barCtrl.dispose();
+    _dotsCtrl.dispose();
     super.dispose();
   }
 
@@ -196,42 +123,54 @@ class _LoadingScreenState extends State<LoadingScreen>
       body: OrientationBuilder(
         builder: (context, orientation) {
           final isPortrait = orientation == Orientation.portrait;
-          final controller =
-              isPortrait ? _portraitVideo : _landscapeVideo;
-          if (controller != null && controller.value.isInitialized) {
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              _kickIfNotPlaying(controller);
-            });
-          }
+          final bgAsset = isPortrait
+              ? StackoAssets.splashPortrait
+              : StackoAssets.splashLandscape;
+          final size = MediaQuery.of(context).size;
+
           return Stack(
             fit: StackFit.expand,
             children: [
-              if (_videosReady &&
-                  controller != null &&
-                  controller.value.isInitialized)
-                _FullCoverVideo(controller: controller)
-              else
-                Container(color: Colors.black),
-              if (_showBar)
-                Positioned(
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  child: Center(
-                    child: AnimatedBuilder(
-                      animation: _progressController,
-                      builder: (context, _) {
-                        final p = _progressController.value;
+              // Full-screen background image.
+              Image.asset(
+                bgAsset,
+                fit: BoxFit.cover,
+                gaplessPlayback: true,
+              ),
+
+              // Loading bar — anchored toward the bottom.
+              Positioned(
+                bottom: isPortrait ? size.height * 0.06 : size.height * 0.05,
+                left: 0,
+                right: 0,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Animated "Loading..." dots text
+                    _DotsText(dots: _dots, isLandscape: !isPortrait),
+                    const SizedBox(height: 12),
+                    // 4-state bar image
+                    AnimatedBuilder(
+                      animation: _barCtrl,
+                      builder: (context, child) {
                         final state =
-                            (p * 4).clamp(0.0, 4.0).floor().clamp(1, 4);
-                        return _LoadingBar(
-                          state: state,
-                          isPortrait: isPortrait,
+                            (_barCtrl.value * 4).clamp(0.0, 4.0).floor().clamp(1, 4);
+                        final barW = isPortrait
+                            ? size.width * 0.68
+                            : size.height * 0.45;
+                        return Center(
+                          child: Image.asset(
+                            StackoAssets.loadingBar(state),
+                            width: barW,
+                            fit: BoxFit.contain,
+                            gaplessPlayback: true,
+                          ),
                         );
                       },
                     ),
-                  ),
+                  ],
                 ),
+              ),
             ],
           );
         },
@@ -240,41 +179,28 @@ class _LoadingScreenState extends State<LoadingScreen>
   }
 }
 
-class _FullCoverVideo extends StatelessWidget {
-  const _FullCoverVideo({required this.controller});
-  final VideoPlayerController controller;
+class _DotsText extends StatelessWidget {
+  const _DotsText({required this.dots, required this.isLandscape});
+
+  final int dots;
+  final bool isLandscape;
 
   @override
   Widget build(BuildContext context) {
-    return ClipRect(
-      child: SizedBox.expand(
-        child: FittedBox(
-          fit: BoxFit.cover,
-          child: SizedBox(
-            width: controller.value.size.width,
-            height: controller.value.size.height,
-            child: VideoPlayer(controller),
-          ),
-        ),
+    final dotStr = '.' * dots;
+    final fontSize = isLandscape ? 18.0 : 20.0;
+    return Text(
+      'Loading$dotStr',
+      textAlign: TextAlign.center,
+      style: GoogleFonts.nunito(
+        fontSize: fontSize,
+        fontWeight: FontWeight.w700,
+        color: Colors.white.withValues(alpha: 0.9),
+        letterSpacing: 1.5,
+        shadows: const [
+          Shadow(blurRadius: 8, color: Colors.black87, offset: Offset(0, 2)),
+        ],
       ),
-    );
-  }
-}
-
-class _LoadingBar extends StatelessWidget {
-  const _LoadingBar({required this.state, required this.isPortrait});
-  final int state;
-  final bool isPortrait;
-
-  @override
-  Widget build(BuildContext context) {
-    final size = MediaQuery.of(context).size;
-    final width = isPortrait ? size.width * 0.7 : size.height * 0.4;
-    return Image.asset(
-      StackoAssets.loadingBar(state),
-      width: width,
-      fit: BoxFit.contain,
-      gaplessPlayback: true,
     );
   }
 }

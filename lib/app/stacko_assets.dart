@@ -9,8 +9,8 @@ class StackoAssets {
   static const startBg = '$_gameplay/city_bg.webp';
   static const startBuilding = '$_gameplay/base_platform.webp';
 
-  static const icon = 'assets/stacko_icon.webp';
-  static const gameName = 'assets/stacko_name.webp';
+  static const icon = 'assets/logo.webp';
+  static const gameName = 'assets/Game_Name.webp';
 
   static String block(int n) =>
       '$_gameplay/block_0${n.toString().padLeft(1, '0')}.webp';
@@ -24,8 +24,8 @@ class StackoAssets {
     '$_gameplay/block_06.webp',
   ];
 
-  static const splashPortrait = '$_splash/9x16_loading_screen.mp4';
-  static const splashLandscape = '$_splash/16x9_loading_screen.mp4';
+  static const splashPortrait = '$_splash/9x16_loading_screen.png';
+  static const splashLandscape = '$_splash/16x9_loading_screen.png';
 
   static String loadingBar(int state) => '$_splash/bar_0$state.webp';
 }
