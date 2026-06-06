@@ -1,5 +1,5 @@
-name: stacko_tower
-description: "StackoTower - pave one continuous road across every plot!"
+name: fortress_blitz
+description: "Fortress Blitz - stack blocks and build the tallest tower!"
 publish_to: 'none'
 version: 1.0.2+13
 
@@ -13,7 +13,6 @@ dependencies:
   video_player: ^2.11.1
   shared_preferences: ^2.5.5
   google_fonts: ^8.1.0
-  audioplayers: ^6.6.0
   webview_flutter: ^4.10.0
 
 dev_dependencies:
@@ -33,7 +32,6 @@ flutter:
     - assets/splash/
     - assets/additional_assets/notifications/
     - assets/additional_assets/no_wifi/
-    - assets/music/
 
 flutter_launcher_icons:
   android: true

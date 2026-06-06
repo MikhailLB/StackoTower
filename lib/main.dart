@@ -18,16 +18,16 @@ Future<void> main() async {
 
   await AudioService.init(progress);
 
-  runApp(const StackoTowerApp());
+  runApp(const FortressBlitzApp());
 }
 
-class StackoTowerApp extends StatelessWidget {
-  const StackoTowerApp({super.key});
+class FortressBlitzApp extends StatelessWidget {
+  const FortressBlitzApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'StackoTower',
+      title: 'Fortress Blitz',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         useMaterial3: true,

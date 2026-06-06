@@ -15,11 +15,7 @@ class GameProgress extends ChangeNotifier {
         _ownedSkins = List<int>.from(_storage.ownedSkins),
         _selectedSkin = _storage.selectedSkin,
         _tutorialSeen = _storage.tutorialSeen,
-        _soundEnabled = _storage.soundEnabled,
-        _musicEnabled = _storage.musicEnabled,
-        _vibrationEnabled = _storage.vibrationEnabled,
-        _musicVolume = _storage.musicVolume,
-        _sfxVolume = _storage.sfxVolume;
+        _vibrationEnabled = _storage.vibrationEnabled;
 
   final StorageService _storage;
 
@@ -33,11 +29,7 @@ class GameProgress extends ChangeNotifier {
   List<int> _ownedSkins;
   int _selectedSkin;
   bool _tutorialSeen;
-  bool _soundEnabled;
-  bool _musicEnabled;
   bool _vibrationEnabled;
-  double _musicVolume;
-  double _sfxVolume;
 
   int get coins => _coins;
   int get highScore => _highScore;
@@ -49,11 +41,7 @@ class GameProgress extends ChangeNotifier {
   List<int> get ownedSkins => List.unmodifiable(_ownedSkins);
   int get selectedSkin => _selectedSkin;
   bool get tutorialSeen => _tutorialSeen;
-  bool get soundEnabled => _soundEnabled;
-  bool get musicEnabled => _musicEnabled;
   bool get vibrationEnabled => _vibrationEnabled;
-  double get musicVolume => _musicVolume;
-  double get sfxVolume => _sfxVolume;
 
   // --- Coins & score ---
 
@@ -121,7 +109,7 @@ class GameProgress extends ChangeNotifier {
     notifyListeners();
   }
 
-  // --- Power-ups: grant / consume ---
+  // --- Power-ups ---
 
   Future<void> grantSkip(int amount) async {
     _skipBoosts += amount;
@@ -165,35 +153,11 @@ class GameProgress extends ChangeNotifier {
     return true;
   }
 
-  // --- Audio / prefs ---
-
-  Future<void> setSoundEnabled(bool value) async {
-    _soundEnabled = value;
-    await _storage.setSoundEnabled(value);
-    notifyListeners();
-  }
-
-  Future<void> setMusicEnabled(bool value) async {
-    _musicEnabled = value;
-    await _storage.setMusicEnabled(value);
-    notifyListeners();
-  }
+  // --- Vibration pref ---
 
   Future<void> setVibrationEnabled(bool value) async {
     _vibrationEnabled = value;
     await _storage.setVibrationEnabled(value);
-    notifyListeners();
-  }
-
-  Future<void> setMusicVolume(double value) async {
-    _musicVolume = value.clamp(0.0, 1.0);
-    await _storage.setMusicVolume(_musicVolume);
-    notifyListeners();
-  }
-
-  Future<void> setSfxVolume(double value) async {
-    _sfxVolume = value.clamp(0.0, 1.0);
-    await _storage.setSfxVolume(_sfxVolume);
     notifyListeners();
   }
 }
