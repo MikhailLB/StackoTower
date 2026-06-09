@@ -65,59 +65,11 @@ class _SettingsScreenState extends State<SettingsScreen>
               opacity: _slideCtrl,
               child: Column(
                 children: [
-                  _Header(onBack: () {
-                    AudioService.instance.playSfx(Sfx.buttonClick);
-                    Navigator.of(context).pop();
-                  }),
+                  _Header(onBack: () => Navigator.of(context).pop()),
                   Expanded(
                     child: ListView(
                       padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
                       children: [
-                        _SectionLabel('Audio'),
-                        const SizedBox(height: 10),
-                        _ToggleTile(
-                          icon: Icons.music_note_rounded,
-                          iconColor: const Color(0xFF7B4FD4),
-                          title: 'Music',
-                          subtitle: 'Background music in menu & gameplay',
-                          value: progress.musicEnabled,
-                          onChanged: (v) async {
-                            await AudioService.instance.playSfx(Sfx.buttonClick);
-                            await progress.setMusicEnabled(v);
-                          },
-                        ),
-                        const SizedBox(height: 6),
-                        _SliderTile(
-                          icon: Icons.volume_up_rounded,
-                          iconColor: const Color(0xFF7B4FD4),
-                          title: 'Music Volume',
-                          value: progress.musicVolume,
-                          enabled: progress.musicEnabled,
-                          onChanged: (v) => progress.setMusicVolume(v),
-                        ),
-                        const SizedBox(height: 14),
-                        _ToggleTile(
-                          icon: Icons.graphic_eq_rounded,
-                          iconColor: AppColors.accent,
-                          title: 'Sound Effects',
-                          subtitle: 'Block taps, drops and UI clicks',
-                          value: progress.soundEnabled,
-                          onChanged: (v) async {
-                            await AudioService.instance.playSfx(Sfx.buttonClick);
-                            await progress.setSoundEnabled(v);
-                            if (v) AudioService.instance.playSfx(Sfx.buttonClick);
-                          },
-                        ),
-                        const SizedBox(height: 6),
-                        _SliderTile(
-                          icon: Icons.volume_up_rounded,
-                          iconColor: AppColors.accent,
-                          title: 'SFX Volume',
-                          value: progress.sfxVolume,
-                          enabled: progress.soundEnabled,
-                          onChanged: (v) => progress.setSfxVolume(v),
-                        ),
-                        const SizedBox(height: 20),
                         _SectionLabel('Haptics'),
                         const SizedBox(height: 10),
                         _ToggleTile(
@@ -139,10 +91,7 @@ class _SettingsScreenState extends State<SettingsScreen>
                     padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
                     child: PixelButton(
                       label: 'Save & Close',
-                      onPressed: () {
-                        AudioService.instance.playSfx(Sfx.buttonClick);
-                        Navigator.of(context).pop();
-                      },
+                      onPressed: () => Navigator.of(context).pop(),
                       width: double.infinity,
                       height: 58,
                       fontSize: 20,
@@ -306,72 +255,3 @@ class _ToggleTile extends StatelessWidget {
   }
 }
 
-class _SliderTile extends StatelessWidget {
-  const _SliderTile({
-    required this.icon,
-    required this.iconColor,
-    required this.title,
-    required this.value,
-    required this.enabled,
-    required this.onChanged,
-  });
-
-  final IconData icon;
-  final Color iconColor;
-  final String title;
-  final double value;
-  final bool enabled;
-  final ValueChanged<double> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    final activeColor = enabled ? iconColor : Colors.white24;
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 4),
-      child: Row(
-        children: [
-          Icon(icon, color: activeColor, size: 18),
-          const SizedBox(width: 10),
-          SizedBox(
-            width: 90,
-            child: Text(
-              title,
-              style: AppTextStyles.body(
-                size: 13,
-                color: enabled ? AppColors.textMuted : Colors.white24,
-              ),
-            ),
-          ),
-          Expanded(
-            child: SliderTheme(
-              data: SliderTheme.of(context).copyWith(
-                activeTrackColor: activeColor,
-                inactiveTrackColor: Colors.white12,
-                thumbColor: activeColor,
-                overlayColor: iconColor.withValues(alpha: 0.15),
-                trackHeight: 3,
-                thumbShape:
-                    const RoundSliderThumbShape(enabledThumbRadius: 8),
-              ),
-              child: Slider(
-                value: value,
-                onChanged: enabled ? onChanged : null,
-              ),
-            ),
-          ),
-          SizedBox(
-            width: 34,
-            child: Text(
-              '${(value * 100).round()}',
-              textAlign: TextAlign.right,
-              style: AppTextStyles.body(
-                size: 13,
-                color: enabled ? AppColors.text : Colors.white24,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}

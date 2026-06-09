@@ -44,10 +44,43 @@ class _LevelSelectScreenState extends State<LevelSelectScreen> {
     if (mounted) AudioService.instance.playBgm(Bgm.menu);
   }
 
+  int _districtSolved(District d) => routeLevels
+      .where((l) => d.contains(l.levelNumber))
+      .where((l) => progress.isLevelCompleted(l.levelNumber))
+      .length;
+
   @override
   Widget build(BuildContext context) {
     final solved = progress.completedLevels.length;
     final total = routeLevels.length;
+
+    final items = <Widget>[];
+    for (final district in districts) {
+      items.add(_DistrictHeader(
+        district: district,
+        solved: _districtSolved(district),
+        stars: routeLevels
+            .where((l) => district.contains(l.levelNumber))
+            .fold(0, (sum, l) => sum + progress.starsFor(l.levelNumber)),
+      ));
+      final levels = routeLevels
+          .where((l) => district.contains(l.levelNumber))
+          .toList();
+      for (var i = 0; i < levels.length; i++) {
+        final level = levels[i];
+        items.add(_RouteNode(
+          level: level,
+          unlocked: progress.isLevelUnlocked(level.levelNumber),
+          completed: progress.isLevelCompleted(level.levelNumber),
+          stars: progress.starsFor(level.levelNumber),
+          first: i == 0,
+          last: i == levels.length - 1,
+          onTap: progress.isLevelUnlocked(level.levelNumber)
+              ? () => _startLevel(level)
+              : null,
+        ));
+      }
+    }
 
     return Scaffold(
       body: SiteBackground(
@@ -79,7 +112,25 @@ class _LevelSelectScreenState extends State<LevelSelectScreen> {
                         ],
                       ),
                     ),
-                    CoinChip(coins: progress.coins),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: NeonColors.cardFill,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                            color: AppColors.accent.withValues(alpha: 0.5)),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.star_rounded,
+                              color: AppColors.accent, size: 16),
+                          const SizedBox(width: 4),
+                          Text('${progress.totalStars}',
+                              style: AppTextStyles.button(size: 14)),
+                        ],
+                      ),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 12),
@@ -105,23 +156,9 @@ class _LevelSelectScreenState extends State<LevelSelectScreen> {
                 ),
                 const SizedBox(height: 8),
                 Expanded(
-                  child: ListView.builder(
+                  child: ListView(
                     padding: const EdgeInsets.only(top: 6, bottom: 16),
-                    itemCount: routeLevels.length,
-                    itemBuilder: (_, index) {
-                      final level = routeLevels[index];
-                      return _RouteNode(
-                        level: level,
-                        unlocked: progress.isLevelUnlocked(level.levelNumber),
-                        completed:
-                            progress.isLevelCompleted(level.levelNumber),
-                        first: index == 0,
-                        last: index == routeLevels.length - 1,
-                        onTap: progress.isLevelUnlocked(level.levelNumber)
-                            ? () => _startLevel(level)
-                            : null,
-                      );
-                    },
+                    children: items,
                   ),
                 ),
               ],
@@ -133,11 +170,74 @@ class _LevelSelectScreenState extends State<LevelSelectScreen> {
   }
 }
 
+class _DistrictHeader extends StatelessWidget {
+  const _DistrictHeader({
+    required this.district,
+    required this.solved,
+    required this.stars,
+  });
+
+  final District district;
+  final int solved;
+  final int stars;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(0, 14, 0, 8),
+      child: NeonCard(
+        edge: NeonColors.cyan,
+        glow: false,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: Row(
+          children: [
+            const Icon(Icons.map_rounded, color: NeonColors.cyan, size: 22),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(district.name.toUpperCase(),
+                      style: AppTextStyles.button(size: 15)
+                          .copyWith(letterSpacing: 1.5)),
+                  Text(district.tagline,
+                      style: AppTextStyles.body(
+                          size: 11, color: AppColors.textMuted)),
+                ],
+              ),
+            ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text('$solved/${district.levelCount}',
+                    style: AppTextStyles.button(
+                        size: 13, color: NeonColors.cyan)),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.star_rounded,
+                        color: AppColors.accent, size: 13),
+                    const SizedBox(width: 2),
+                    Text('$stars/${district.levelCount * 3}',
+                        style: AppTextStyles.body(
+                            size: 11, color: AppColors.textMuted)),
+                  ],
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _RouteNode extends StatelessWidget {
   const _RouteNode({
     required this.level,
     required this.unlocked,
     required this.completed,
+    required this.stars,
     required this.first,
     required this.last,
     required this.onTap,
@@ -146,6 +246,7 @@ class _RouteNode extends StatelessWidget {
   final RouteLevel level;
   final bool unlocked;
   final bool completed;
+  final int stars;
   final bool first;
   final bool last;
   final VoidCallback? onTap;
@@ -263,16 +364,29 @@ class _RouteNode extends StatelessWidget {
                                 )),
                           ],
                         ),
-                        const SizedBox(height: 8),
-                        Icon(
-                          completed
-                              ? Icons.replay_rounded
-                              : (unlocked
-                                  ? Icons.play_arrow_rounded
-                                  : Icons.lock_rounded),
-                          color: unlocked ? AppColors.text : Colors.white24,
-                          size: 20,
-                        ),
+                        const SizedBox(height: 6),
+                        if (completed)
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              for (var s = 0; s < 3; s++)
+                                Icon(
+                                  Icons.star_rounded,
+                                  size: 15,
+                                  color: s < stars
+                                      ? AppColors.accent
+                                      : Colors.white24,
+                                ),
+                            ],
+                          )
+                        else
+                          Icon(
+                            unlocked
+                                ? Icons.play_arrow_rounded
+                                : Icons.lock_rounded,
+                            color: unlocked ? AppColors.text : Colors.white24,
+                            size: 20,
+                          ),
                       ],
                     ),
                   ],

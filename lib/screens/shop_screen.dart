@@ -3,6 +3,8 @@
 import '../app/app_orientation.dart';
 import '../app/app_theme.dart';
 import '../app/stacko_assets.dart';
+import '../game/achievements.dart';
+import '../game/road_themes.dart';
 import '../main.dart';
 import '../services/audio_service.dart';
 import '../widgets/site_background.dart';
@@ -17,14 +19,19 @@ class ShopScreen extends StatefulWidget {
 }
 
 class _ShopScreenState extends State<ShopScreen> {
-  static const Map<int, int> _skinPrices = {1: 10, 2: 100, 3: 500};
-  static const int _firstComingSoonSkin = 4;
+  static const Map<int, int> _skinPrices = {
+    1: 10,
+    2: 100,
+    3: 500,
+    4: 900,
+    5: 1500,
+    6: 2500,
+  };
 
   static const _skipPrice = 90;
   static const _doubleCoinsPrice = 80;
   static const _luckyPrice = 30;
 
-  bool _isComingSoon(int skin) => skin >= _firstComingSoonSkin;
   int? _priceOf(int skin) => _skinPrices[skin];
 
   @override
@@ -46,10 +53,6 @@ class _ShopScreenState extends State<ShopScreen> {
 
   Future<void> _buySkin(int skin) async {
     AudioService.instance.playSfx(Sfx.buttonClick);
-    if (_isComingSoon(skin)) {
-      _snack('Coming soon!');
-      return;
-    }
     if (progress.ownedSkins.contains(skin)) {
       await progress.setSelectedSkin(skin);
       return;
@@ -62,6 +65,22 @@ class _ShopScreenState extends State<ShopScreen> {
     }
     await progress.unlockSkin(skin);
     await progress.setSelectedSkin(skin);
+    await syncAchievements(progress);
+  }
+
+  Future<void> _buyTheme(RoadTheme theme) async {
+    AudioService.instance.playSfx(Sfx.buttonClick);
+    if (progress.ownedThemes.contains(theme.id)) {
+      await progress.setSelectedTheme(theme.id);
+      return;
+    }
+    if (!await progress.spendCoins(theme.price)) {
+      _snack('Not enough coins');
+      return;
+    }
+    await progress.unlockTheme(theme.id);
+    await progress.setSelectedTheme(theme.id);
+    await syncAchievements(progress);
   }
 
   Future<void> _buyBoost(int price, Future<void> Function(int) grant) async {
@@ -138,7 +157,6 @@ class _ShopScreenState extends State<ShopScreen> {
                             owned: progress.ownedSkins.contains(skin),
                             selected: progress.selectedSkin == skin,
                             price: _priceOf(skin),
-                            comingSoon: _isComingSoon(skin),
                             onTap: () => _buySkin(skin),
                           );
                         },
@@ -174,6 +192,26 @@ class _ShopScreenState extends State<ShopScreen> {
                             const Icon(Icons.check_circle_rounded,
                                 color: AppColors.accent, size: 22),
                         ],
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    const SectionLabel('Road Themes'),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      height: 120,
+                      child: ListView.separated(
+                        scrollDirection: Axis.horizontal,
+                        itemCount: roadThemes.length,
+                        separatorBuilder: (_, _) => const SizedBox(width: 12),
+                        itemBuilder: (_, index) {
+                          final theme = roadThemes[index];
+                          return _ThemeCard(
+                            theme: theme,
+                            owned: progress.ownedThemes.contains(theme.id),
+                            selected: progress.selectedTheme == theme.id,
+                            onTap: () => _buyTheme(theme),
+                          );
+                        },
                       ),
                     ),
                     const SizedBox(height: 24),
@@ -226,7 +264,6 @@ class _SkinCard extends StatelessWidget {
     required this.owned,
     required this.selected,
     required this.price,
-    required this.comingSoon,
     required this.onTap,
   });
 
@@ -234,7 +271,6 @@ class _SkinCard extends StatelessWidget {
   final bool owned;
   final bool selected;
   final int? price;
-  final bool comingSoon;
   final VoidCallback onTap;
 
   @override
@@ -253,17 +289,11 @@ class _SkinCard extends StatelessWidget {
           child: Column(
             children: [
               Expanded(
-                child: Opacity(
-                  opacity: comingSoon ? 0.3 : 1,
-                  child: Image.asset(StackoAssets.block(skin),
-                      fit: BoxFit.contain),
-                ),
+                child: Image.asset(StackoAssets.block(skin),
+                    fit: BoxFit.contain),
               ),
               const SizedBox(height: 4),
-              if (comingSoon)
-                Text('Soon',
-                    style: AppTextStyles.body(size: 11, color: Colors.white60))
-              else if (selected)
+              if (selected)
                 Text('Active',
                     style: AppTextStyles.button(size: 12, color: AppColors.accent))
               else if (owned)
@@ -277,6 +307,86 @@ class _SkinCard extends StatelessWidget {
                         color: AppColors.accent, size: 13),
                     const SizedBox(width: 3),
                     Text('${price ?? 0}',
+                        style: AppTextStyles.button(size: 13)),
+                  ],
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ThemeCard extends StatelessWidget {
+  const _ThemeCard({
+    required this.theme,
+    required this.owned,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final RoadTheme theme;
+  final bool owned;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final edge = selected
+        ? AppColors.accent
+        : (owned ? NeonColors.cyan : NeonColors.violet);
+    return GestureDetector(
+      onTap: onTap,
+      child: SizedBox(
+        width: 116,
+        child: NeonCard(
+          edge: edge,
+          glow: selected,
+          padding: const EdgeInsets.all(10),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Expanded(
+                child: Center(
+                  child: Container(
+                    width: 64,
+                    height: 10,
+                    decoration: BoxDecoration(
+                      color: theme.color,
+                      borderRadius: BorderRadius.circular(5),
+                      boxShadow: [
+                        BoxShadow(
+                          color: theme.glow.withValues(alpha: 0.8),
+                          blurRadius: 12,
+                          spreadRadius: 1,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              Text(theme.name,
+                  style: AppTextStyles.body(size: 11, color: AppColors.text),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis),
+              const SizedBox(height: 4),
+              if (selected)
+                Text('Active',
+                    style: AppTextStyles.button(
+                        size: 12, color: AppColors.accent))
+              else if (owned)
+                Text('Owned',
+                    style:
+                        AppTextStyles.body(size: 12, color: NeonColors.cyan))
+              else
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.monetization_on_rounded,
+                        color: AppColors.accent, size: 13),
+                    const SizedBox(width: 3),
+                    Text('${theme.price}',
                         style: AppTextStyles.button(size: 13)),
                   ],
                 ),

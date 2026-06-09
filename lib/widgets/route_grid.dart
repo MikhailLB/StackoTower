@@ -14,12 +14,14 @@ class RouteGrid extends StatefulWidget {
     required this.blockAsset,
     required this.onEnter,
     required this.onDragStart,
+    this.roadColor = AppColors.accent,
   });
 
   final RouteController controller;
   final String blockAsset;
   final void Function(int row, int col) onEnter;
   final VoidCallback onDragStart;
+  final Color roadColor;
 
   @override
   State<RouteGrid> createState() => _RouteGridState();
@@ -106,6 +108,7 @@ class _RouteGridState extends State<RouteGrid> {
                             path: controller.path,
                             cols: cols,
                             cell: cell,
+                            color: widget.roadColor,
                           ),
                         ),
                       ),
@@ -201,17 +204,23 @@ class _CellTile extends StatelessWidget {
 }
 
 class _RoadPainter extends CustomPainter {
-  _RoadPainter({required this.path, required this.cols, required this.cell});
+  _RoadPainter({
+    required this.path,
+    required this.cols,
+    required this.cell,
+    required this.color,
+  });
 
   final List<int> path;
   final int cols;
   final double cell;
+  final Color color;
 
   @override
   void paint(Canvas canvas, Size size) {
     if (path.length < 2) return;
     final line = Paint()
-      ..color = AppColors.accent.withValues(alpha: 0.85)
+      ..color = color.withValues(alpha: 0.85)
       ..style = PaintingStyle.stroke
       ..strokeWidth = cell * 0.16
       ..strokeJoin = StrokeJoin.round
@@ -233,5 +242,7 @@ class _RoadPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _RoadPainter oldDelegate) =>
-      oldDelegate.path != path || oldDelegate.cell != cell;
+      oldDelegate.path != path ||
+      oldDelegate.cell != cell ||
+      oldDelegate.color != color;
 }

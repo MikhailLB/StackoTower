@@ -7,9 +7,9 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   testWidgets('App scaffold builds', (tester) async {
     await tester.pumpWidget(const MaterialApp(
-      home: Scaffold(body: Center(child: Text('TowerBalance'))),
+      home: Scaffold(body: Center(child: Text('StackoTower'))),
     ));
 
-    expect(find.text('TowerBalance'), findsOneWidget);
+    expect(find.text('StackoTower'), findsOneWidget);
   });
 }

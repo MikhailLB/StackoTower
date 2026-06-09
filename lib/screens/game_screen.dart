@@ -6,6 +6,9 @@ import 'package:flutter/material.dart';
 import '../app/app_orientation.dart';
 import '../app/app_theme.dart';
 import '../app/stacko_assets.dart';
+import '../game/achievements.dart';
+import '../game/level_forge.dart';
+import '../game/road_themes.dart';
 import '../game/route_controller.dart';
 import '../game/route_level.dart';
 import '../main.dart';
@@ -15,12 +18,21 @@ import '../widgets/pixel_button.dart';
 import '../widgets/route_grid.dart';
 import '../widgets/site_background.dart';
 
+enum GameMode { campaign, endless, daily }
+
 /// Hosts a single Site Paver puzzle. Pure Flutter — the [RouteController]
 /// holds the logic and this screen renders it.
 class GameScreen extends StatefulWidget {
-  const GameScreen({super.key, required this.level});
+  const GameScreen({
+    super.key,
+    required this.level,
+    this.mode = GameMode.campaign,
+    this.endlessStage = 0,
+  });
 
   final RouteLevel level;
+  final GameMode mode;
+  final int endlessStage;
 
   @override
   State<GameScreen> createState() => _GameScreenState();
@@ -28,16 +40,33 @@ class GameScreen extends StatefulWidget {
 
 class _GameScreenState extends State<GameScreen> {
   late RouteController _controller;
+  late RouteLevel _level;
+  late int _endlessStage;
+  int _endlessStreak = 0;
+
   final math.Random _rand = math.Random();
   late String _blockAsset;
+  final Stopwatch _watch = Stopwatch();
+
   bool _rewarded = false;
   bool _usedDoubleCoins = false;
   bool _showTutorial = false;
+  int _undoCount = 0;
+  int _resetCount = 0;
+
+  // Complete-overlay payload.
+  int _awardedCoins = 0;
+  int _earnedStars = 0;
+  int _starBonus = 0;
+  int _dailyStreakResult = 0;
+  List<Achievement> _newAwards = const [];
 
   @override
   void initState() {
     super.initState();
     setOrientationsLockedPortrait();
+    _level = widget.level;
+    _endlessStage = widget.endlessStage;
     _blockAsset = StackoAssets.block(_pickSkin());
     _usedDoubleCoins = progress.doubleCoinsBoosts > 0;
     _showTutorial = !progress.tutorialSeen;
@@ -47,7 +76,16 @@ class _GameScreenState extends State<GameScreen> {
 
   void _startRound() {
     _rewarded = false;
-    _controller = RouteController(widget.level)..addListener(_onTick);
+    _undoCount = 0;
+    _resetCount = 0;
+    _awardedCoins = 0;
+    _earnedStars = 0;
+    _starBonus = 0;
+    _newAwards = const [];
+    _watch
+      ..reset()
+      ..start();
+    _controller = RouteController(_level)..addListener(_onTick);
   }
 
   void _onTick() {
@@ -70,16 +108,25 @@ class _GameScreenState extends State<GameScreen> {
     super.dispose();
   }
 
+  int get _potentialStars {
+    final mistakes = _undoCount + _resetCount;
+    if (mistakes == 0) return 3;
+    if (mistakes <= 3) return 2;
+    return 1;
+  }
+
   void _onEnter(int r, int c) {
     final result = _controller.enter(r, c);
     switch (result) {
       case RouteMove.completed:
         unawaited(_onComplete());
         break;
+      case RouteMove.paved:
+        AudioService.instance.playSfx(Sfx.blockLand);
+        break;
       case RouteMove.retracted:
         AudioService.instance.playSfx(Sfx.buttonClick);
         break;
-      case RouteMove.paved:
       case RouteMove.ignored:
         break;
     }
@@ -93,33 +140,70 @@ class _GameScreenState extends State<GameScreen> {
   Future<void> _onComplete() async {
     if (_rewarded) return;
     _rewarded = true;
+    _watch.stop();
     AudioService.instance.playSfx(Sfx.levelComplete);
+    AudioService.instance.vibrate(heavy: true);
 
-    await progress.completeLevel(widget.level.levelNumber);
-    final solved = progress.completedLevels.length;
-    if (solved > progress.highScore) {
-      await progress.setHighScore(solved);
+    final stars = _potentialStars;
+    var coins = _level.coinReward;
+
+    switch (widget.mode) {
+      case GameMode.campaign:
+        await progress.completeLevel(_level.levelNumber);
+        final solved = progress.completedLevels.length;
+        if (solved > progress.highScore) {
+          await progress.setHighScore(solved);
+        }
+        final newStars =
+            await progress.recordLevelStars(_level.levelNumber, stars);
+        _starBonus = newStars * 25;
+        coins += _starBonus;
+        _earnedStars = stars;
+        break;
+      case GameMode.endless:
+        _endlessStreak++;
+        await progress.recordEndlessSolve(_endlessStreak);
+        break;
+      case GameMode.daily:
+        _dailyStreakResult = await progress.recordDailySolve(DateTime.now());
+        coins += math.min(_dailyStreakResult - 1, 10) * 15;
+        break;
     }
 
-    var coins = widget.level.coinReward;
     if (_usedDoubleCoins && progress.doubleCoinsBoosts > 0) {
       await progress.consumeDoubleCoins();
+      await progress.recordBoostUsed();
       coins *= 2;
     }
     if (progress.luckyBoosts > 0) {
       await progress.consumeLucky();
+      await progress.recordBoostUsed();
       coins += 20;
     }
     if (coins > 0) await progress.addCoins(coins);
+    _awardedCoins = coins;
+
+    await progress.recordRoundStats(
+      plotsPaved: _level.plotCount,
+      undos: _undoCount,
+      perfect: widget.mode == GameMode.campaign && stars == 3,
+      playSeconds: _watch.elapsed.inSeconds,
+    );
+
+    _newAwards = await syncAchievements(progress);
+    if (mounted) setState(() {});
   }
 
   void _onUndo() {
+    if (!_controller.isRouting || _controller.pavedCount <= 1) return;
     AudioService.instance.playSfx(Sfx.buttonClick);
+    _undoCount++;
     _controller.undo();
   }
 
   void _onReset() {
     AudioService.instance.playSfx(Sfx.buttonClick);
+    if (_controller.pavedCount > 1) _resetCount++;
     _controller.reset();
   }
 
@@ -137,7 +221,10 @@ class _GameScreenState extends State<GameScreen> {
     final granted = await progress.consumeSkip();
     if (!granted) return;
     AudioService.instance.playSfx(Sfx.buttonClick);
-    await progress.completeLevel(widget.level.levelNumber);
+    await progress.recordBoostUsed();
+    if (widget.mode == GameMode.campaign) {
+      await progress.completeLevel(_level.levelNumber);
+    }
     if (mounted) Navigator.of(context).pop();
   }
 
@@ -146,9 +233,56 @@ class _GameScreenState extends State<GameScreen> {
     if (mounted) Navigator.of(context).pop();
   }
 
+  void _onNextLevel() {
+    AudioService.instance.playSfx(Sfx.buttonClick);
+    final next = _level.levelNumber + 1;
+    if (next > routeLevels.length) {
+      _onExit();
+      return;
+    }
+    setState(() {
+      _controller.removeListener(_onTick);
+      _controller.dispose();
+      _level = routeLevelByNumber(next);
+      _startRound();
+    });
+  }
+
+  void _onNextShift() {
+    AudioService.instance.playSfx(Sfx.buttonClick);
+    setState(() {
+      _controller.removeListener(_onTick);
+      _controller.dispose();
+      _endlessStage++;
+      _level = LevelForge.endless(_endlessStage);
+      _startRound();
+    });
+  }
+
+  void _onReplay() {
+    AudioService.instance.playSfx(Sfx.buttonClick);
+    setState(() {
+      _controller.removeListener(_onTick);
+      _controller.dispose();
+      _startRound();
+    });
+  }
+
+  String get _modeLabel {
+    switch (widget.mode) {
+      case GameMode.campaign:
+        return 'LOT ${_level.levelNumber}';
+      case GameMode.endless:
+        return 'ENDLESS SHIFT';
+      case GameMode.daily:
+        return 'DAILY BLUEPRINT';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final status = _controller.status;
+    final theme = roadThemeById(progress.selectedTheme);
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, _) {
@@ -168,8 +302,11 @@ class _GameScreenState extends State<GameScreen> {
                 child: Column(
                   children: [
                     _TopBar(
-                      level: widget.level,
+                      label: _modeLabel,
+                      level: _level,
                       controller: _controller,
+                      potentialStars:
+                          widget.mode == GameMode.campaign ? _potentialStars : null,
                       onPause: _onPause,
                     ),
                     Expanded(
@@ -178,6 +315,7 @@ class _GameScreenState extends State<GameScreen> {
                         child: RouteGrid(
                           controller: _controller,
                           blockAsset: _blockAsset,
+                          roadColor: theme.color,
                           onEnter: _onEnter,
                           onDragStart: () {},
                         ),
@@ -201,11 +339,21 @@ class _GameScreenState extends State<GameScreen> {
                 ),
               if (status == RouteStatus.complete)
                 _CompleteOverlay(
-                  level: widget.level,
-                  onNext: _onExit,
-                  onReplay: () {
-                    _onReset();
-                  },
+                  mode: widget.mode,
+                  level: _level,
+                  coins: _awardedCoins,
+                  stars: _earnedStars,
+                  starBonus: _starBonus,
+                  dailyStreak: _dailyStreakResult,
+                  endlessStreak: _endlessStreak,
+                  newAwards: _newAwards,
+                  onNext: widget.mode == GameMode.endless
+                      ? _onNextShift
+                      : (widget.mode == GameMode.campaign &&
+                              _level.levelNumber < routeLevels.length
+                          ? _onNextLevel
+                          : null),
+                  onReplay: _onReplay,
                   onExit: _onExit,
                 ),
               if (_showTutorial)
@@ -222,13 +370,17 @@ class _GameScreenState extends State<GameScreen> {
 
 class _TopBar extends StatelessWidget {
   const _TopBar({
+    required this.label,
     required this.level,
     required this.controller,
+    required this.potentialStars,
     required this.onPause,
   });
 
+  final String label;
   final RouteLevel level;
   final RouteController controller;
+  final int? potentialStars;
   final VoidCallback onPause;
 
   @override
@@ -243,11 +395,28 @@ class _TopBar extends StatelessWidget {
           Column(
             children: [
               Text(
-                'LOT ${level.levelNumber}',
+                label,
                 style: AppTextStyles.body(size: 10, color: AppColors.accent)
                     .copyWith(letterSpacing: 2),
               ),
               Text(level.name, style: AppTextStyles.title(size: 22)),
+              if (potentialStars != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 2),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      for (var i = 0; i < 3; i++)
+                        Icon(
+                          Icons.star_rounded,
+                          size: 14,
+                          color: i < potentialStars!
+                              ? AppColors.accent
+                              : Colors.white24,
+                        ),
+                    ],
+                  ),
+                ),
             ],
           ),
           const Spacer(),
@@ -418,26 +587,97 @@ class _PauseOverlay extends StatelessWidget {
 
 class _CompleteOverlay extends StatelessWidget {
   const _CompleteOverlay({
+    required this.mode,
     required this.level,
+    required this.coins,
+    required this.stars,
+    required this.starBonus,
+    required this.dailyStreak,
+    required this.endlessStreak,
+    required this.newAwards,
     required this.onNext,
     required this.onReplay,
     required this.onExit,
   });
 
+  final GameMode mode;
   final RouteLevel level;
-  final VoidCallback onNext;
+  final int coins;
+  final int stars;
+  final int starBonus;
+  final int dailyStreak;
+  final int endlessStreak;
+  final List<Achievement> newAwards;
+  final VoidCallback? onNext;
   final VoidCallback onReplay;
   final VoidCallback onExit;
 
+  String get _title {
+    switch (mode) {
+      case GameMode.campaign:
+        return 'Lot Paved!';
+      case GameMode.endless:
+        return 'Shift Cleared!';
+      case GameMode.daily:
+        return 'Blueprint Done!';
+    }
+  }
+
+  String get _nextLabel {
+    switch (mode) {
+      case GameMode.campaign:
+        return 'Next Lot';
+      case GameMode.endless:
+        return 'Next Shift';
+      case GameMode.daily:
+        return 'Continue';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final isLast = level.levelNumber >= routeLevels.length;
     return _ModalScrim(
       child: _PanelCard(
-        title: 'Lot Paved!',
+        title: _title,
         icon: Icons.verified_rounded,
         children: [
           Text(level.name, style: AppTextStyles.button(size: 18)),
+          if (mode == GameMode.campaign) ...[
+            const SizedBox(height: 10),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                for (var i = 0; i < 3; i++)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 2),
+                    child: Icon(
+                      Icons.star_rounded,
+                      size: 38,
+                      color: i < stars ? AppColors.accent : Colors.white24,
+                      shadows: i < stars
+                          ? const [
+                              Shadow(blurRadius: 12, color: Color(0xAAFF8800)),
+                            ]
+                          : null,
+                    ),
+                  ),
+              ],
+            ),
+          ],
+          if (mode == GameMode.daily && dailyStreak > 0) ...[
+            const SizedBox(height: 8),
+            _InfoChip(
+              icon: Icons.local_fire_department_rounded,
+              label: '$dailyStreak-day streak',
+            ),
+          ],
+          if (mode == GameMode.endless && endlessStreak > 0) ...[
+            const SizedBox(height: 8),
+            _InfoChip(
+              icon: Icons.bolt_rounded,
+              label: 'Streak: $endlessStreak',
+            ),
+          ],
           const SizedBox(height: 10),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 7),
@@ -452,20 +692,94 @@ class _CompleteOverlay extends StatelessWidget {
                 const Icon(Icons.monetization_on_rounded,
                     color: AppColors.accent, size: 22),
                 const SizedBox(width: 8),
-                Text('+${level.coinReward} coins',
+                Text('+$coins coins',
                     style: AppTextStyles.score(size: 20, color: AppColors.accent)),
               ],
             ),
           ),
+          if (starBonus > 0) ...[
+            const SizedBox(height: 6),
+            Text('incl. +$starBonus star bonus',
+                style: AppTextStyles.body(size: 12, color: AppColors.textMuted)),
+          ],
+          for (final award in newAwards) ...[
+            const SizedBox(height: 8),
+            _AwardChip(award: award),
+          ],
           const SizedBox(height: 18),
-          if (!isLast) ...[
-            PixelButton(label: 'Continue', onPressed: onNext),
+          if (onNext != null) ...[
+            PixelButton(label: _nextLabel, onPressed: onNext),
             const SizedBox(height: 12),
           ],
           PixelButton(
             label: 'Replay',
             onPressed: onReplay,
             color: PixelButtonColor.secondary,
+          ),
+          const SizedBox(height: 12),
+          PixelButton(
+            label: 'Main Menu',
+            onPressed: onExit,
+            color: PixelButtonColor.secondary,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _InfoChip extends StatelessWidget {
+  const _InfoChip({required this.icon, required this.label});
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.white24),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: AppColors.accent, size: 16),
+          const SizedBox(width: 6),
+          Text(label, style: AppTextStyles.button(size: 13)),
+        ],
+      ),
+    );
+  }
+}
+
+class _AwardChip extends StatelessWidget {
+  const _AwardChip({required this.award});
+  final Achievement award;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: const Color(0xFF35E0E0).withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(12),
+        border:
+            Border.all(color: const Color(0xFF35E0E0).withValues(alpha: 0.6)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(award.icon, color: const Color(0xFF35E0E0), size: 18),
+          const SizedBox(width: 8),
+          Flexible(
+            child: Text(
+              'Award: ${award.title}  +${award.coinReward}',
+              style: AppTextStyles.button(size: 13, color: const Color(0xFF35E0E0)),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
           ),
         ],
       ),

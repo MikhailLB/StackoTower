@@ -1,17 +1,43 @@
-# tower_balance
+# StackoTower — Site Paver
 
-A new Flutter project.
+A one-line route puzzle built with pure Flutter (no game engine). Pave one
+continuous road that covers every plot of the lot exactly once, from START
+to EXIT, routing around obstacle blocks.
 
-## Getting Started
+## Content
 
-This project is a starting point for a Flutter application.
+- **Campaign** — 60 hand-tuned lots across 4 districts (Foundation Yard,
+  Neon Harbor, Skyline Heights, Crystal Megapolis), each proven solvable by
+  the test suite.
+- **Daily Blueprint** — a unique procedurally forged puzzle every calendar
+  day, with a day-streak bonus.
+- **Endless Shift** — infinite procedurally generated lots with escalating
+  difficulty and streak tracking.
+- **Stars** — up to 3 stars per campaign lot for mistake-free clears, with
+  bonus coin payouts.
+- **Awards** — 24 achievements with live progress tracking and coin rewards.
+- **Statistics** — lifetime crew records and player ranks.
+- **Shop** — 6 block skins, 6 road colour themes, and consumable power-ups,
+  all purchased with earned coins (no IAP, no ads).
+- **Daily login bonus** — escalating coin gift with a 7-day streak cap.
 
-A few resources to get you started if this is your first Flutter project:
+## Tech notes
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+- Levels are validated by a Hamiltonian-path solver
+  (`lib/game/level_forge.dart`, shared with `test/route_level_test.dart`).
+- Campaign lots 16–60 were authored with `tool/forge_campaign.dart`, which
+  prints verified `RouteLevel.grid` definitions.
+- Persistence via `shared_preferences`; audio via `audioplayers`.
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+## Run
+
+```bash
+flutter pub get
+flutter run
+```
+
+## Test
+
+```bash
+flutter test
+```

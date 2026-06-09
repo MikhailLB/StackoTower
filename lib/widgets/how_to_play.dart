@@ -47,6 +47,20 @@ class _HowToPlayOverlayState extends State<HowToPlayOverlay> {
           'Cover the whole lot and end the road right on the EXIT flag to '
           'complete the blueprint. Take your time — no timers.',
     ),
+    _Step(
+      icon: Icons.star_rounded,
+      title: 'Earn Stars',
+      body:
+          'Clear a lot without Undo or Reset for 3 stars. Up to 3 mistakes '
+          'still earns 2. New stars pay bonus coins!',
+    ),
+    _Step(
+      icon: Icons.all_inclusive_rounded,
+      title: 'Daily & Endless',
+      body:
+          'Solve the one-of-a-kind Daily Blueprint to build your streak, or '
+          'grind Endless Shifts that grow tougher as you go.',
+    ),
   ];
 
   @override

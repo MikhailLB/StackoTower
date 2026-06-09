@@ -22,6 +22,31 @@ class StorageService {
   static const _kVibrationEnabled = 'st_vibration_enabled';
   static const _kMusicVolume = 'st_music_volume';
   static const _kSfxVolume = 'st_sfx_volume';
+  // Stars ("level:stars" entries)
+  static const _kLevelStars = 'st_level_stars';
+  // Road themes
+  static const _kOwnedThemes = 'st_owned_themes';
+  static const _kSelectedTheme = 'st_selected_theme';
+  // Endless shift mode
+  static const _kEndlessSolved = 'st_endless_solved';
+  static const _kEndlessBestStreak = 'st_endless_best_streak';
+  // Daily blueprint
+  static const _kDailyStreak = 'st_daily_streak';
+  static const _kDailyLastSolved = 'st_daily_last_solved';
+  static const _kDailySolvedTotal = 'st_daily_solved_total';
+  // Daily login bonus
+  static const _kBonusLastClaim = 'st_bonus_last_claim';
+  static const _kBonusStreak = 'st_bonus_streak';
+  // Achievements
+  static const _kAchievements = 'st_achievements';
+  // Lifetime statistics
+  static const _kStatPlotsPaved = 'st_stat_plots_paved';
+  static const _kStatUndos = 'st_stat_undos';
+  static const _kStatPerfect = 'st_stat_perfect';
+  static const _kStatCoinsEarned = 'st_stat_coins_earned';
+  static const _kStatCompletes = 'st_stat_completes';
+  static const _kStatPlaySeconds = 'st_stat_play_seconds';
+  static const _kStatBoostsUsed = 'st_stat_boosts_used';
 
   final SharedPreferences _prefs;
 
@@ -57,6 +82,9 @@ class StorageService {
     if (!_prefs.containsKey(_kSfxVolume)) {
       await _prefs.setDouble(_kSfxVolume, 0.8);
     }
+    if (!_prefs.containsKey(_kOwnedThemes)) {
+      await _prefs.setStringList(_kOwnedThemes, ['0']);
+    }
   }
 
   // --- Getters ---
@@ -82,6 +110,41 @@ class StorageService {
           .toList()
         ..sort();
   int get selectedSkin => _prefs.getInt(_kSelectedSkin) ?? 0;
+  Map<int, int> get levelStars {
+    final out = <int, int>{};
+    for (final e in _prefs.getStringList(_kLevelStars) ?? const <String>[]) {
+      final parts = e.split(':');
+      if (parts.length == 2) {
+        final l = int.tryParse(parts[0]);
+        final s = int.tryParse(parts[1]);
+        if (l != null && s != null) out[l] = s;
+      }
+    }
+    return out;
+  }
+
+  List<int> get ownedThemes =>
+      (_prefs.getStringList(_kOwnedThemes) ?? const ['0'])
+          .map(int.parse)
+          .toList()
+        ..sort();
+  int get selectedTheme => _prefs.getInt(_kSelectedTheme) ?? 0;
+  int get endlessSolved => _prefs.getInt(_kEndlessSolved) ?? 0;
+  int get endlessBestStreak => _prefs.getInt(_kEndlessBestStreak) ?? 0;
+  int get dailyStreak => _prefs.getInt(_kDailyStreak) ?? 0;
+  String get dailyLastSolved => _prefs.getString(_kDailyLastSolved) ?? '';
+  int get dailySolvedTotal => _prefs.getInt(_kDailySolvedTotal) ?? 0;
+  String get bonusLastClaim => _prefs.getString(_kBonusLastClaim) ?? '';
+  int get bonusStreak => _prefs.getInt(_kBonusStreak) ?? 0;
+  Set<String> get achievements =>
+      (_prefs.getStringList(_kAchievements) ?? const <String>[]).toSet();
+  int get statPlotsPaved => _prefs.getInt(_kStatPlotsPaved) ?? 0;
+  int get statUndos => _prefs.getInt(_kStatUndos) ?? 0;
+  int get statPerfect => _prefs.getInt(_kStatPerfect) ?? 0;
+  int get statCoinsEarned => _prefs.getInt(_kStatCoinsEarned) ?? 0;
+  int get statCompletes => _prefs.getInt(_kStatCompletes) ?? 0;
+  int get statPlaySeconds => _prefs.getInt(_kStatPlaySeconds) ?? 0;
+  int get statBoostsUsed => _prefs.getInt(_kStatBoostsUsed) ?? 0;
 
   // --- Setters ---
   Future<void> setHighScore(int v) => _prefs.setInt(_kHighScore, v);
@@ -116,4 +179,45 @@ class StorageService {
       );
     }
   }
+
+  Future<void> setLevelStars(Map<int, int> stars) => _prefs.setStringList(
+        _kLevelStars,
+        stars.entries.map((e) => '${e.key}:${e.value}').toList(),
+      );
+
+  Future<void> addOwnedTheme(int theme) async {
+    final list = ownedThemes;
+    if (!list.contains(theme)) {
+      list.add(theme);
+      await _prefs.setStringList(
+        _kOwnedThemes,
+        list.map((e) => e.toString()).toList(),
+      );
+    }
+  }
+
+  Future<void> setSelectedTheme(int theme) =>
+      _prefs.setInt(_kSelectedTheme, theme);
+  Future<void> setEndlessSolved(int v) => _prefs.setInt(_kEndlessSolved, v);
+  Future<void> setEndlessBestStreak(int v) =>
+      _prefs.setInt(_kEndlessBestStreak, v);
+  Future<void> setDailyStreak(int v) => _prefs.setInt(_kDailyStreak, v);
+  Future<void> setDailyLastSolved(String v) =>
+      _prefs.setString(_kDailyLastSolved, v);
+  Future<void> setDailySolvedTotal(int v) =>
+      _prefs.setInt(_kDailySolvedTotal, v);
+  Future<void> setBonusLastClaim(String v) =>
+      _prefs.setString(_kBonusLastClaim, v);
+  Future<void> setBonusStreak(int v) => _prefs.setInt(_kBonusStreak, v);
+  Future<void> setAchievements(Set<String> ids) =>
+      _prefs.setStringList(_kAchievements, ids.toList());
+  Future<void> setStatPlotsPaved(int v) => _prefs.setInt(_kStatPlotsPaved, v);
+  Future<void> setStatUndos(int v) => _prefs.setInt(_kStatUndos, v);
+  Future<void> setStatPerfect(int v) => _prefs.setInt(_kStatPerfect, v);
+  Future<void> setStatCoinsEarned(int v) =>
+      _prefs.setInt(_kStatCoinsEarned, v);
+  Future<void> setStatCompletes(int v) => _prefs.setInt(_kStatCompletes, v);
+  Future<void> setStatPlaySeconds(int v) =>
+      _prefs.setInt(_kStatPlaySeconds, v);
+  Future<void> setStatBoostsUsed(int v) => _prefs.setInt(_kStatBoostsUsed, v);
 }

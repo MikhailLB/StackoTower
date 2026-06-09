@@ -5,17 +5,21 @@ import 'package:flutter/material.dart';
 import '../app/app_orientation.dart';
 import '../app/app_theme.dart';
 import '../app/stacko_assets.dart';
+import '../game/achievements.dart';
+import '../game/level_forge.dart';
 import '../game/route_level.dart';
 import '../main.dart';
 import '../services/audio_service.dart';
 import '../widgets/how_to_play.dart';
 import '../widgets/site_background.dart';
 import '../widgets/ui_kit.dart';
+import 'achievements_screen.dart';
 import 'game_screen.dart';
 import 'info_web_screen.dart';
 import 'level_select_screen.dart';
 import 'settings_screen.dart';
 import 'shop_screen.dart';
+import 'stats_screen.dart';
 
 class MainMenuScreen extends StatefulWidget {
   const MainMenuScreen({super.key});
@@ -72,12 +76,44 @@ class _MainMenuScreenState extends State<MainMenuScreen>
         InfoWebScreen(title: title, url: url),
       );
 
+  void _playDaily() {
+    final now = DateTime.now();
+    _push(GameScreen(level: LevelForge.daily(now), mode: GameMode.daily));
+  }
+
+  void _playEndless() {
+    final stage = progress.endlessSolved;
+    _push(GameScreen(
+      level: LevelForge.endless(stage),
+      mode: GameMode.endless,
+      endlessStage: stage,
+    ));
+  }
+
+  Future<void> _claimBonus() async {
+    AudioService.instance.playSfx(Sfx.levelComplete);
+    final amount = await progress.claimDailyBonus(DateTime.now());
+    await syncAchievements(progress);
+    if (!mounted || amount <= 0) return;
+    ScaffoldMessenger.of(context)
+      ..clearSnackBars()
+      ..showSnackBar(SnackBar(
+        backgroundColor: NeonColors.cardFill,
+        content: Text('Daily bonus: +$amount coins!',
+            style: AppTextStyles.body()),
+        duration: const Duration(seconds: 2),
+      ));
+  }
+
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
     final total = routeLevels.length;
     final solved = progress.completedLevels.length;
     final featured = _featured;
+    final now = DateTime.now();
+    final bonusReady = progress.canClaimDailyBonus(now);
+    final dailySolved = progress.isDailySolved(now);
 
     return Scaffold(
       body: Stack(
@@ -91,21 +127,30 @@ class _MainMenuScreenState extends State<MainMenuScreen>
                   child: Column(
                     children: [
                       const SizedBox(height: 8),
-                      // Top bar: settings + coins
+                      // Top bar: settings / awards / stats + coins
                       Row(
                         children: [
                           CircleIconButton(
                               icon: Icons.settings_rounded,
                               onTap: () => _push(const SettingsScreen())),
+                          const SizedBox(width: 8),
+                          CircleIconButton(
+                              icon: Icons.emoji_events_rounded,
+                              onTap: () =>
+                                  _push(const AchievementsScreen())),
+                          const SizedBox(width: 8),
+                          CircleIconButton(
+                              icon: Icons.query_stats_rounded,
+                              onTap: () => _push(const StatsScreen())),
                           const Spacer(),
                           CoinChip(coins: progress.coins),
                         ],
                       ),
-                      const SizedBox(height: 14),
+                      const SizedBox(height: 10),
                       // Logo + tagline
                       Image.asset(StackoAssets.gameName,
-                          width: size.width * 0.66, fit: BoxFit.contain),
-                      const SizedBox(height: 8),
+                          width: size.width * 0.6, fit: BoxFit.contain),
+                      const SizedBox(height: 6),
                       Container(
                         padding: const EdgeInsets.symmetric(
                             horizontal: 14, vertical: 4),
@@ -120,10 +165,59 @@ class _MainMenuScreenState extends State<MainMenuScreen>
                                     size: 11, color: NeonColors.cyan)
                                 .copyWith(letterSpacing: 3)),
                       ),
-                      const SizedBox(height: 16),
-                      _ProgressTrack(solved: solved, total: total),
+                      const SizedBox(height: 10),
+                      // Compact progress summary
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          _SummaryChip(
+                            icon: Icons.flag_rounded,
+                            label: '$solved/$total lots',
+                          ),
+                          const SizedBox(width: 8),
+                          _SummaryChip(
+                            icon: Icons.star_rounded,
+                            label: '${progress.totalStars} stars',
+                          ),
+                          if (progress.dailyStreak > 0) ...[
+                            const SizedBox(width: 8),
+                            _SummaryChip(
+                              icon: Icons.local_fire_department_rounded,
+                              label: '${progress.dailyStreak}d',
+                            ),
+                          ],
+                        ],
+                      ),
                       const Spacer(),
-                      // Horizontal featured "next lot" card
+                      // Daily login bonus
+                      if (bonusReady) ...[
+                        NeonCard(
+                          edge: NeonColors.cyan,
+                          onTap: _claimBonus,
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 10),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.card_giftcard_rounded,
+                                  color: NeonColors.cyan, size: 26),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Text(
+                                  'Daily bonus ready: '
+                                  '+${progress.nextDailyBonus(now)} coins',
+                                  style: AppTextStyles.button(size: 14),
+                                ),
+                              ),
+                              Text('CLAIM',
+                                  style: AppTextStyles.button(
+                                          size: 14, color: NeonColors.cyan)
+                                      .copyWith(letterSpacing: 1.5)),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                      ],
+                      // Featured "next lot" card
                       NeonCard(
                         edge: AppColors.accent,
                         onTap: () => _push(GameScreen(level: featured)),
@@ -133,7 +227,7 @@ class _MainMenuScreenState extends State<MainMenuScreen>
                             LotPreview(
                               rows: featured.rows,
                               cols: featured.cols,
-                              box: 92,
+                              box: 84,
                               walls: featured.walls,
                               startIndex: featured.startIndex,
                               exitIndex: featured.exitIndex,
@@ -154,15 +248,19 @@ class _MainMenuScreenState extends State<MainMenuScreen>
                                   ),
                                   const SizedBox(height: 4),
                                   Text(featured.name,
-                                      style: AppTextStyles.title(size: 22),
+                                      style: AppTextStyles.title(size: 20),
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis),
                                   const SizedBox(height: 2),
-                                  Text('${featured.cols}×${featured.rows} lot',
+                                  Text(
+                                      '${districtOf(featured.levelNumber).name}'
+                                      ' · ${featured.cols}×${featured.rows}',
                                       style: AppTextStyles.body(
-                                          size: 13,
-                                          color: AppColors.textMuted)),
-                                  const SizedBox(height: 8),
+                                          size: 12,
+                                          color: AppColors.textMuted),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis),
+                                  const SizedBox(height: 6),
                                   Row(
                                     children: [
                                       const Icon(Icons.play_circle_fill_rounded,
@@ -180,7 +278,37 @@ class _MainMenuScreenState extends State<MainMenuScreen>
                           ],
                         ),
                       ),
-                      const SizedBox(height: 14),
+                      const SizedBox(height: 10),
+                      // Daily + Endless modes
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _ModeCard(
+                              icon: dailySolved
+                                  ? Icons.check_circle_rounded
+                                  : Icons.today_rounded,
+                              title: 'Daily',
+                              subtitle: dailySolved
+                                  ? 'Solved today!'
+                                  : 'New blueprint',
+                              color: NeonColors.cyan,
+                              onTap: _playDaily,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: _ModeCard(
+                              icon: Icons.all_inclusive_rounded,
+                              title: 'Endless',
+                              subtitle:
+                                  '${progress.endlessSolved} shifts done',
+                              color: NeonColors.violet,
+                              onTap: _playEndless,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
                       // Bottom action bar
                       Row(
                         crossAxisAlignment: CrossAxisAlignment.end,
@@ -215,7 +343,7 @@ class _MainMenuScreenState extends State<MainMenuScreen>
                           ),
                         ],
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 6),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
@@ -231,7 +359,7 @@ class _MainMenuScreenState extends State<MainMenuScreen>
                                   'https://sttackotower.com/support.html')),
                         ],
                       ),
-                      const SizedBox(height: 6),
+                      const SizedBox(height: 4),
                     ],
                   ),
                 ),
@@ -246,49 +374,74 @@ class _MainMenuScreenState extends State<MainMenuScreen>
   }
 }
 
-/// A row of level nodes connected like a route; solved nodes glow gold.
-class _ProgressTrack extends StatelessWidget {
-  const _ProgressTrack({required this.solved, required this.total});
-  final int solved;
-  final int total;
+class _SummaryChip extends StatelessWidget {
+  const _SummaryChip({required this.icon, required this.label});
+  final IconData icon;
+  final String label;
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Wrap(
-          alignment: WrapAlignment.center,
-          spacing: 6,
-          runSpacing: 6,
-          children: [
-            for (var i = 0; i < total; i++)
-              Container(
-                width: 12,
-                height: 12,
-                decoration: BoxDecoration(
-                  color: i < solved ? AppColors.accent : Colors.white12,
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: i < solved
-                        ? AppColors.accent
-                        : Colors.white24,
-                    width: 1,
-                  ),
-                  boxShadow: i < solved
-                      ? [
-                          BoxShadow(
-                              color: AppColors.accent.withValues(alpha: 0.6),
-                              blurRadius: 6)
-                        ]
-                      : null,
-                ),
-              ),
-          ],
-        ),
-        const SizedBox(height: 6),
-        Text('$solved / $total lots paved',
-            style: AppTextStyles.body(size: 12, color: AppColors.textMuted)),
-      ],
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: NeonColors.cardFill,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.white12),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: AppColors.accent, size: 14),
+          const SizedBox(width: 5),
+          Text(label,
+              style: AppTextStyles.body(size: 12, color: AppColors.text)),
+        ],
+      ),
+    );
+  }
+}
+
+class _ModeCard extends StatelessWidget {
+  const _ModeCard({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.color,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final Color color;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return NeonCard(
+      edge: color,
+      glow: false,
+      onTap: onTap,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      child: Row(
+        children: [
+          Icon(icon, color: color, size: 26),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: AppTextStyles.button(size: 15)),
+                Text(subtitle,
+                    style: AppTextStyles.body(
+                        size: 10, color: AppColors.textMuted),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
