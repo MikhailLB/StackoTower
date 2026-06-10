@@ -12,6 +12,14 @@ class GameProgress extends ChangeNotifier {
         _skipBoosts = _storage.skipBoosts,
         _doubleCoinsBoosts = _storage.doubleCoinsBoosts,
         _luckyBoosts = _storage.luckyBoosts,
+        _slowBoosts = _storage.slowBoosts,
+        _widenBoosts = _storage.widenBoosts,
+        _storySeen = _storage.storySeen,
+        _tipsSeen = Set<String>.from(_storage.tipsSeen),
+        _upBase = _storage.upBase,
+        _upSteady = _storage.upSteady,
+        _upPayout = _storage.upPayout,
+        _bossesBeaten = Set<int>.from(_storage.bossesBeaten),
         _ownedSkins = List<int>.from(_storage.ownedSkins),
         _selectedSkin = _storage.selectedSkin,
         _tutorialSeen = _storage.tutorialSeen,
@@ -48,6 +56,16 @@ class GameProgress extends ChangeNotifier {
   int _skipBoosts;
   int _doubleCoinsBoosts;
   int _luckyBoosts;
+  int _slowBoosts;
+  int _widenBoosts;
+  bool _storySeen;
+  final Set<String> _tipsSeen;
+  int _upBase;
+  int _upSteady;
+  int _upPayout;
+  final Set<int> _bossesBeaten;
+
+  static const int upMaxLevel = 5;
   List<int> _ownedSkins;
   int _selectedSkin;
   bool _tutorialSeen;
@@ -82,6 +100,83 @@ class GameProgress extends ChangeNotifier {
   int get skipBoosts => _skipBoosts;
   int get doubleCoinsBoosts => _doubleCoinsBoosts;
   int get luckyBoosts => _luckyBoosts;
+  int get slowBoosts => _slowBoosts;
+  int get widenBoosts => _widenBoosts;
+  bool get storySeen => _storySeen;
+
+  // --- Crane upgrades (permanent meta-progression) ---
+  int get upBase => _upBase;
+  int get upSteady => _upSteady;
+  int get upPayout => _upPayout;
+
+  /// Extra base half-width granted by the "Wide Base" upgrade.
+  double get extraBaseHalf => _upBase * 0.012;
+
+  /// Swing-speed multiplier from the "Steady Crane" upgrade (slower = easier).
+  double get speedMul => 1 - _upSteady * 0.04;
+
+  /// Coin reward multiplier from the "Payout" upgrade.
+  double get payoutMul => 1 + _upPayout * 0.10;
+
+  int upgradeLevel(String id) {
+    switch (id) {
+      case 'base':
+        return _upBase;
+      case 'steady':
+        return _upSteady;
+      case 'payout':
+        return _upPayout;
+      default:
+        return 0;
+    }
+  }
+
+  /// Price of the next level of an upgrade (escalates).
+  int upgradePrice(String id) => 200 + upgradeLevel(id) * 250;
+
+  /// Buys the next level of an upgrade if affordable & not maxed.
+  Future<bool> buyUpgrade(String id) async {
+    final lvl = upgradeLevel(id);
+    if (lvl >= upMaxLevel) return false;
+    if (!await spendCoins(upgradePrice(id))) return false;
+    switch (id) {
+      case 'base':
+        _upBase++;
+        await _storage.setUpBase(_upBase);
+        break;
+      case 'steady':
+        _upSteady++;
+        await _storage.setUpSteady(_upSteady);
+        break;
+      case 'payout':
+        _upPayout++;
+        await _storage.setUpPayout(_upPayout);
+        break;
+    }
+    notifyListeners();
+    return true;
+  }
+
+  // --- Bosses ---
+  bool isBossBeaten(int districtIndex) => _bossesBeaten.contains(districtIndex);
+  int get bossesBeaten => _bossesBeaten.length;
+  Future<void> markBossBeaten(int districtIndex) async {
+    if (!_bossesBeaten.add(districtIndex)) return;
+    await _storage.setBossesBeaten(_bossesBeaten);
+    notifyListeners();
+  }
+
+  bool hasTip(String id) => _tipsSeen.contains(id);
+  Future<void> markTipSeen(String id) async {
+    if (!_tipsSeen.add(id)) return;
+    await _storage.setTipsSeen(_tipsSeen);
+  }
+
+  Future<void> setStorySeen() async {
+    if (_storySeen) return;
+    _storySeen = true;
+    await _storage.setStorySeen(true);
+  }
   List<int> get ownedSkins => List.unmodifiable(_ownedSkins);
   int get selectedSkin => _selectedSkin;
   bool get tutorialSeen => _tutorialSeen;
@@ -344,6 +439,34 @@ class GameProgress extends ChangeNotifier {
     if (_luckyBoosts <= 0) return false;
     _luckyBoosts--;
     await _storage.setLuckyBoosts(_luckyBoosts);
+    notifyListeners();
+    return true;
+  }
+
+  Future<void> grantSlow(int amount) async {
+    _slowBoosts += amount;
+    await _storage.setSlowBoosts(_slowBoosts);
+    notifyListeners();
+  }
+
+  Future<bool> consumeSlow() async {
+    if (_slowBoosts <= 0) return false;
+    _slowBoosts--;
+    await _storage.setSlowBoosts(_slowBoosts);
+    notifyListeners();
+    return true;
+  }
+
+  Future<void> grantWiden(int amount) async {
+    _widenBoosts += amount;
+    await _storage.setWidenBoosts(_widenBoosts);
+    notifyListeners();
+  }
+
+  Future<bool> consumeWiden() async {
+    if (_widenBoosts <= 0) return false;
+    _widenBoosts--;
+    await _storage.setWidenBoosts(_widenBoosts);
     notifyListeners();
     return true;
   }

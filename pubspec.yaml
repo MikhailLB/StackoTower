@@ -1,7 +1,7 @@
 name: stacko_tower
-description: "StackoTower - pave one continuous road across every plot!"
+description: "Stacko Tower: Balance - swing the crane, stack the skyline, keep your tower from toppling!"
 publish_to: 'none'
-version: 1.1.0+14
+version: 2.0.0+16
 
 environment:
   sdk: ^3.11.4
@@ -30,6 +30,7 @@ flutter:
     - assets/stacko_name.webp
     - assets/gameplay/
     - assets/splash/
+    - assets/story/
     - assets/additional_assets/notifications/
     - assets/additional_assets/no_wifi/
 

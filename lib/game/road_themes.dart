@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
-/// Cosmetic colour themes for the paved road line.
+/// Cosmetic colour palettes for the tower. The [id] maps directly to
+/// TowerSkin.byIndex so the shop preview matches the in-game skin.
 class RoadTheme {
   const RoadTheme({
     required this.id,
@@ -18,48 +19,12 @@ class RoadTheme {
 }
 
 const List<RoadTheme> roadThemes = [
-  RoadTheme(
-    id: 0,
-    name: 'Classic Gold',
-    price: 0,
-    color: Color(0xFFFFC233),
-    glow: Color(0xFFFF8800),
-  ),
-  RoadTheme(
-    id: 1,
-    name: 'Cyan Pulse',
-    price: 250,
-    color: Color(0xFF35E0E0),
-    glow: Color(0xFF1899B3),
-  ),
-  RoadTheme(
-    id: 2,
-    name: 'Magenta Flux',
-    price: 450,
-    color: Color(0xFFE356C8),
-    glow: Color(0xFF9C27B0),
-  ),
-  RoadTheme(
-    id: 3,
-    name: 'Lime Circuit',
-    price: 700,
-    color: Color(0xFFA8E05A),
-    glow: Color(0xFF5BA814),
-  ),
-  RoadTheme(
-    id: 4,
-    name: 'Sunset Drive',
-    price: 1000,
-    color: Color(0xFFFF7E5F),
-    glow: Color(0xFFD84315),
-  ),
-  RoadTheme(
-    id: 5,
-    name: 'Arctic Line',
-    price: 1500,
-    color: Color(0xFFB3E5FC),
-    glow: Color(0xFF4FC3F7),
-  ),
+  RoadTheme(id: 0, name: 'Neon', price: 0, color: Color(0xFF27E5F2), glow: Color(0xFF1899B3)),
+  RoadTheme(id: 1, name: 'Sunset', price: 250, color: Color(0xFFFF8A5C), glow: Color(0xFFD84315)),
+  RoadTheme(id: 2, name: 'Aurora', price: 450, color: Color(0xFF5CFFD0), glow: Color(0xFF1DE9B6)),
+  RoadTheme(id: 3, name: 'Mono', price: 700, color: Color(0xFFCBD5FF), glow: Color(0xFF8FA0E0)),
+  RoadTheme(id: 4, name: 'Magma', price: 1000, color: Color(0xFFFF5C3C), glow: Color(0xFFD84315)),
+  RoadTheme(id: 5, name: 'Toxic', price: 1500, color: Color(0xFF8CFF3C), glow: Color(0xFF5BA814)),
 ];
 
 RoadTheme roadThemeById(int id) => roadThemes.firstWhere(

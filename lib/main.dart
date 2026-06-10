@@ -1,7 +1,7 @@
 ﻿import 'package:flutter/material.dart';
 
 import 'app/app_orientation.dart';
-import 'app/app_theme.dart';
+import 'app/skyline.dart';
 import 'screens/loading_screen.dart';
 import 'services/audio_service.dart';
 import 'services/storage_service.dart';
@@ -27,14 +27,14 @@ class StackoTowerApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'StackoTower',
+      title: 'Stacko Tower: Balance',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         useMaterial3: true,
-        scaffoldBackgroundColor: AppColors.sky,
+        scaffoldBackgroundColor: Sky.bg0,
         colorScheme: ColorScheme.fromSeed(
-          seedColor: AppColors.accent,
-          brightness: Brightness.light,
+          seedColor: Sky.cyan,
+          brightness: Brightness.dark,
         ),
       ),
       home: const LoadingScreen(),

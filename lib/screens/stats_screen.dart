@@ -3,9 +3,8 @@ import 'package:flutter/material.dart';
 import '../app/app_orientation.dart';
 import '../app/app_theme.dart';
 import '../game/achievements.dart';
-import '../game/route_level.dart';
+import '../game/campaign.dart';
 import '../main.dart';
-import '../services/audio_service.dart';
 import '../widgets/site_background.dart';
 import '../widgets/ui_kit.dart';
 
@@ -65,7 +64,7 @@ class _StatsScreenState extends State<StatsScreen> {
   @override
   Widget build(BuildContext context) {
     final solved = progress.completedLevels.length;
-    final total = routeLevels.length;
+    final total = campaignCount;
     final awards =
         allAchievements.where((a) => progress.hasAchievement(a.id)).length;
 
@@ -80,10 +79,7 @@ class _StatsScreenState extends State<StatsScreen> {
                   children: [
                     CircleIconButton(
                       icon: Icons.arrow_back_rounded,
-                      onTap: () {
-                        AudioService.instance.playSfx(Sfx.buttonClick);
-                        Navigator.of(context).pop();
-                      },
+                      onTap: () => Navigator.of(context).pop(),
                     ),
                     const SizedBox(width: 12),
                     Expanded(

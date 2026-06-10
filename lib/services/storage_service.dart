@@ -16,6 +16,15 @@ class StorageService {
   static const _kBoostSkip = 'st_boost_skip';
   static const _kBoostDoubleCoins = 'st_boost_double_coins';
   static const _kBoostLucky = 'st_boost_lucky';
+  static const _kBoostSlow = 'st_boost_slow';
+  static const _kBoostWiden = 'st_boost_widen';
+  static const _kTipsSeen = 'st_tips_seen';
+  static const _kStorySeen = 'st_story_seen';
+  // Permanent crane upgrades (levels)
+  static const _kUpBase = 'st_up_base';
+  static const _kUpSteady = 'st_up_steady';
+  static const _kUpPayout = 'st_up_payout';
+  static const _kBossesBeaten = 'st_bosses_beaten';
   // Audio
   static const _kSoundEnabled = 'st_sound_enabled';
   static const _kMusicEnabled = 'st_music_enabled';
@@ -98,6 +107,18 @@ class StorageService {
   int get skipBoosts => _prefs.getInt(_kBoostSkip) ?? 0;
   int get doubleCoinsBoosts => _prefs.getInt(_kBoostDoubleCoins) ?? 0;
   int get luckyBoosts => _prefs.getInt(_kBoostLucky) ?? 0;
+  int get slowBoosts => _prefs.getInt(_kBoostSlow) ?? 0;
+  int get widenBoosts => _prefs.getInt(_kBoostWiden) ?? 0;
+  bool get storySeen => _prefs.getBool(_kStorySeen) ?? false;
+  Set<String> get tipsSeen =>
+      (_prefs.getStringList(_kTipsSeen) ?? const <String>[]).toSet();
+  int get upBase => _prefs.getInt(_kUpBase) ?? 0;
+  int get upSteady => _prefs.getInt(_kUpSteady) ?? 0;
+  int get upPayout => _prefs.getInt(_kUpPayout) ?? 0;
+  Set<int> get bossesBeaten =>
+      (_prefs.getStringList(_kBossesBeaten) ?? const <String>[])
+          .map(int.parse)
+          .toSet();
   bool get tutorialSeen => _prefs.getBool(_kTutorialSeen) ?? false;
   bool get soundEnabled => _prefs.getBool(_kSoundEnabled) ?? true;
   bool get musicEnabled => _prefs.getBool(_kMusicEnabled) ?? true;
@@ -159,6 +180,16 @@ class StorageService {
   Future<void> setDoubleCoinsBoosts(int v) =>
       _prefs.setInt(_kBoostDoubleCoins, v);
   Future<void> setLuckyBoosts(int v) => _prefs.setInt(_kBoostLucky, v);
+  Future<void> setSlowBoosts(int v) => _prefs.setInt(_kBoostSlow, v);
+  Future<void> setWidenBoosts(int v) => _prefs.setInt(_kBoostWiden, v);
+  Future<void> setStorySeen(bool v) => _prefs.setBool(_kStorySeen, v);
+  Future<void> setTipsSeen(Set<String> ids) =>
+      _prefs.setStringList(_kTipsSeen, ids.toList());
+  Future<void> setUpBase(int v) => _prefs.setInt(_kUpBase, v);
+  Future<void> setUpSteady(int v) => _prefs.setInt(_kUpSteady, v);
+  Future<void> setUpPayout(int v) => _prefs.setInt(_kUpPayout, v);
+  Future<void> setBossesBeaten(Set<int> ids) => _prefs.setStringList(
+      _kBossesBeaten, ids.map((e) => e.toString()).toList());
   Future<void> setTutorialSeen(bool v) => _prefs.setBool(_kTutorialSeen, v);
   Future<void> setSoundEnabled(bool v) => _prefs.setBool(_kSoundEnabled, v);
   Future<void> setMusicEnabled(bool v) => _prefs.setBool(_kMusicEnabled, v);

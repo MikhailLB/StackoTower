@@ -1,16 +1,13 @@
 ﻿import 'package:flutter/material.dart';
 
 import '../app/app_orientation.dart';
-import '../app/app_theme.dart';
-import '../app/stacko_assets.dart';
+import '../app/skyline.dart';
 import '../game/achievements.dart';
 import '../game/road_themes.dart';
 import '../main.dart';
-import '../services/audio_service.dart';
-import '../widgets/site_background.dart';
-import '../widgets/ui_kit.dart';
+import '../state/game_progress.dart';
 
-/// Spend earned coins on cosmetic block skins or consumable power-ups.
+/// Spend coins on tower skins and consumable balance boosts.
 class ShopScreen extends StatefulWidget {
   const ShopScreen({super.key});
 
@@ -19,20 +16,11 @@ class ShopScreen extends StatefulWidget {
 }
 
 class _ShopScreenState extends State<ShopScreen> {
-  static const Map<int, int> _skinPrices = {
-    1: 10,
-    2: 100,
-    3: 500,
-    4: 900,
-    5: 1500,
-    6: 2500,
-  };
-
-  static const _skipPrice = 90;
-  static const _doubleCoinsPrice = 80;
+  static const _stabilisePrice = 90;
+  static const _slowPrice = 70;
+  static const _widenPrice = 110;
+  static const _doublePrice = 80;
   static const _luckyPrice = 30;
-
-  int? _priceOf(int skin) => _skinPrices[skin];
 
   @override
   void initState() {
@@ -51,40 +39,21 @@ class _ShopScreenState extends State<ShopScreen> {
     if (mounted) setState(() {});
   }
 
-  Future<void> _buySkin(int skin) async {
-    AudioService.instance.playSfx(Sfx.buttonClick);
-    if (progress.ownedSkins.contains(skin)) {
-      await progress.setSelectedSkin(skin);
+  Future<void> _buyTheme(RoadTheme t) async {
+    if (progress.ownedThemes.contains(t.id)) {
+      await progress.setSelectedTheme(t.id);
       return;
     }
-    final price = _priceOf(skin);
-    if (price == null) return;
-    if (!await progress.spendCoins(price)) {
+    if (!await progress.spendCoins(t.price)) {
       _snack('Not enough coins');
       return;
     }
-    await progress.unlockSkin(skin);
-    await progress.setSelectedSkin(skin);
-    await syncAchievements(progress);
-  }
-
-  Future<void> _buyTheme(RoadTheme theme) async {
-    AudioService.instance.playSfx(Sfx.buttonClick);
-    if (progress.ownedThemes.contains(theme.id)) {
-      await progress.setSelectedTheme(theme.id);
-      return;
-    }
-    if (!await progress.spendCoins(theme.price)) {
-      _snack('Not enough coins');
-      return;
-    }
-    await progress.unlockTheme(theme.id);
-    await progress.setSelectedTheme(theme.id);
+    await progress.unlockTheme(t.id);
+    await progress.setSelectedTheme(t.id);
     await syncAchievements(progress);
   }
 
   Future<void> _buyBoost(int price, Future<void> Function(int) grant) async {
-    AudioService.instance.playSfx(Sfx.buttonClick);
     if (!await progress.spendCoins(price)) {
       _snack('Not enough coins');
       return;
@@ -92,49 +61,39 @@ class _ShopScreenState extends State<ShopScreen> {
     await grant(1);
   }
 
+  Future<void> _buyUpgrade(String id) async {
+    if (progress.upgradeLevel(id) >= GameProgress.upMaxLevel) return;
+    if (!await progress.buyUpgrade(id)) _snack('Not enough coins');
+  }
+
   void _snack(String text) {
     ScaffoldMessenger.of(context)
       ..clearSnackBars()
       ..showSnackBar(SnackBar(
-        backgroundColor: NeonColors.cardFill,
-        content: Text(text, style: AppTextStyles.body()),
+        backgroundColor: Sky.panel,
+        behavior: SnackBarBehavior.floating,
+        content: Text(text, style: Sky.label(size: 14)),
         duration: const Duration(seconds: 2),
       ));
   }
 
   @override
   Widget build(BuildContext context) {
-    final isRandom = progress.selectedSkin == 0;
     return Scaffold(
-      body: SiteBackground(
+      body: SkyBackdrop(
+        glowColor: Sky.amber,
         child: SafeArea(
           child: Column(
             children: [
               Padding(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+                padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
                 child: Row(
                   children: [
-                    CircleIconButton(
-                      icon: Icons.arrow_back_rounded,
-                      onTap: () {
-                        AudioService.instance.playSfx(Sfx.buttonClick);
-                        Navigator.of(context).pop();
-                      },
-                    ),
+                    _back(),
                     const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('FORGE YARD',
-                              style: AppTextStyles.body(
-                                      size: 10, color: NeonColors.cyan)
-                                  .copyWith(letterSpacing: 3)),
-                          Text('Shop', style: AppTextStyles.title(size: 26)),
-                        ],
-                      ),
-                    ),
-                    CoinChip(coins: progress.coins),
+                    Text('SHOP', style: Sky.display(size: 24)),
+                    const Spacer(),
+                    _coin(),
                   ],
                 ),
               ),
@@ -142,109 +101,104 @@ class _ShopScreenState extends State<ShopScreen> {
                 child: ListView(
                   padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
                   children: [
-                    const SectionLabel('Block Skins'),
+                    _label('Tower Skins'),
                     const SizedBox(height: 12),
-                    SizedBox(
-                      height: 138,
-                      child: ListView.separated(
-                        scrollDirection: Axis.horizontal,
-                        itemCount: 6,
-                        separatorBuilder: (_, _) => const SizedBox(width: 12),
-                        itemBuilder: (_, index) {
-                          final skin = index + 1;
-                          return _SkinCard(
-                            skin: skin,
-                            owned: progress.ownedSkins.contains(skin),
-                            selected: progress.selectedSkin == skin,
-                            price: _priceOf(skin),
-                            onTap: () => _buySkin(skin),
-                          );
-                        },
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    NeonCard(
-                      edge: isRandom ? AppColors.accent : NeonColors.violet,
-                      glow: isRandom,
-                      padding:
-                          const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                      onTap: () {
-                        AudioService.instance.playSfx(Sfx.buttonClick);
-                        progress.setSelectedSkin(0);
-                      },
-                      child: Row(
-                        children: [
-                          Icon(Icons.shuffle_rounded,
-                              color: isRandom
-                                  ? AppColors.accent
-                                  : AppColors.textMuted,
-                              size: 22),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Text('Random Rotation',
-                                style: AppTextStyles.button(
-                                    size: 16,
-                                    color: isRandom
-                                        ? AppColors.accent
-                                        : AppColors.text)),
+                    GridView.count(
+                      crossAxisCount: 3,
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      mainAxisSpacing: 12,
+                      crossAxisSpacing: 12,
+                      childAspectRatio: 0.82,
+                      children: [
+                        for (final t in roadThemes)
+                          _SkinCard(
+                            theme: t,
+                            owned: progress.ownedThemes.contains(t.id),
+                            selected: progress.selectedTheme == t.id,
+                            onTap: () => _buyTheme(t),
                           ),
-                          if (isRandom)
-                            const Icon(Icons.check_circle_rounded,
-                                color: AppColors.accent, size: 22),
-                        ],
-                      ),
+                      ],
                     ),
                     const SizedBox(height: 24),
-                    const SectionLabel('Road Themes'),
+                    _label('Crane Upgrades'),
                     const SizedBox(height: 12),
-                    SizedBox(
-                      height: 120,
-                      child: ListView.separated(
-                        scrollDirection: Axis.horizontal,
-                        itemCount: roadThemes.length,
-                        separatorBuilder: (_, _) => const SizedBox(width: 12),
-                        itemBuilder: (_, index) {
-                          final theme = roadThemes[index];
-                          return _ThemeCard(
-                            theme: theme,
-                            owned: progress.ownedThemes.contains(theme.id),
-                            selected: progress.selectedTheme == theme.id,
-                            onTap: () => _buyTheme(theme),
-                          );
-                        },
-                      ),
+                    _UpgradeCard(
+                      icon: Icons.swap_horiz_rounded,
+                      title: 'Wide Base',
+                      subtitle: 'Permanently widens your starting footing.',
+                      id: 'base',
+                      accent: Sky.cyan,
+                      onBuy: () => _buyUpgrade('base'),
+                    ),
+                    const SizedBox(height: 10),
+                    _UpgradeCard(
+                      icon: Icons.speed_rounded,
+                      title: 'Steady Crane',
+                      subtitle: 'Permanently slows the swing — easier aiming.',
+                      id: 'steady',
+                      accent: Sky.violet,
+                      onBuy: () => _buyUpgrade('steady'),
+                    ),
+                    const SizedBox(height: 10),
+                    _UpgradeCard(
+                      icon: Icons.trending_up_rounded,
+                      title: 'Payout',
+                      subtitle: 'Permanently boosts coins earned per run.',
+                      id: 'payout',
+                      accent: Sky.amber,
+                      onBuy: () => _buyUpgrade('payout'),
                     ),
                     const SizedBox(height: 24),
-                    const SectionLabel('Power-Ups'),
+                    _label('Balance Boosts'),
                     const SizedBox(height: 12),
                     _PowerCard(
-                      icon: Icons.skip_next_rounded,
-                      title: 'Skip Pass',
-                      subtitle: 'Instantly clears a lot you are stuck on.',
-                      price: _skipPrice,
+                      icon: Icons.balance_rounded,
+                      title: 'Stabiliser',
+                      subtitle: 'Cancels wind & recovers a dangerous lean.',
+                      price: _stabilisePrice,
                       owned: progress.skipBoosts,
-                      accent: NeonColors.cyan,
-                      onBuy: () => _buyBoost(_skipPrice, progress.grantSkip),
+                      accent: Sky.lime,
+                      onBuy: () => _buyBoost(_stabilisePrice, progress.grantSkip),
+                    ),
+                    const SizedBox(height: 10),
+                    _PowerCard(
+                      icon: Icons.slow_motion_video_rounded,
+                      title: 'Slow-Mo',
+                      subtitle: 'Slows the crane for 5 seconds — line up the shot.',
+                      price: _slowPrice,
+                      owned: progress.slowBoosts,
+                      accent: Sky.cyan,
+                      onBuy: () => _buyBoost(_slowPrice, progress.grantSlow),
+                    ),
+                    const SizedBox(height: 10),
+                    _PowerCard(
+                      icon: Icons.open_in_full_rounded,
+                      title: 'Reinforce',
+                      subtitle: 'Widens the support back toward a full base.',
+                      price: _widenPrice,
+                      owned: progress.widenBoosts,
+                      accent: Sky.violet,
+                      onBuy: () => _buyBoost(_widenPrice, progress.grantWiden),
                     ),
                     const SizedBox(height: 10),
                     _PowerCard(
                       icon: Icons.account_balance_wallet_rounded,
                       title: 'Double Coins',
-                      subtitle: 'Doubles coin rewards for your next lot.',
-                      price: _doubleCoinsPrice,
+                      subtitle: 'Doubles coin rewards for your next run.',
+                      price: _doublePrice,
                       owned: progress.doubleCoinsBoosts,
-                      accent: AppColors.accent,
-                      onBuy: () =>
-                          _buyBoost(_doubleCoinsPrice, progress.grantDoubleCoins),
+                      accent: Sky.amber,
+                      onBuy: () => _buyBoost(_doublePrice, progress.grantDoubleCoins),
                     ),
                     const SizedBox(height: 10),
                     _PowerCard(
                       icon: Icons.casino_rounded,
                       title: 'Lucky Bonus',
-                      subtitle: '+20 bonus coins when you complete a lot.',
+                      subtitle: '+50 bonus coins on your next run.',
                       price: _luckyPrice,
                       owned: progress.luckyBoosts,
-                      accent: NeonColors.violet,
+                      accent: Sky.magenta,
                       onBuy: () => _buyBoost(_luckyPrice, progress.grantLucky),
                     ),
                   ],
@@ -256,70 +210,52 @@ class _ShopScreenState extends State<ShopScreen> {
       ),
     );
   }
+
+  Widget _label(String t) => Row(children: [
+        Container(
+          width: 4,
+          height: 18,
+          decoration: BoxDecoration(
+            color: Sky.cyan,
+            borderRadius: BorderRadius.circular(2),
+            boxShadow: Sky.glow(Sky.cyan, blur: 8),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Text(t.toUpperCase(), style: Sky.label(size: 16, spacing: 1.5)),
+      ]);
+
+  Widget _coin() => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          color: Sky.panel,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: Sky.amber.withValues(alpha: 0.5), width: 1.4),
+        ),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          const Icon(Icons.monetization_on_rounded, color: Sky.amber, size: 20),
+          const SizedBox(width: 6),
+          Text('${progress.coins}', style: Sky.number(size: 16)),
+        ]),
+      );
+
+  Widget _back() => GestureDetector(
+        onTap: () => Navigator.of(context).maybePop(),
+        child: Container(
+          width: 42,
+          height: 42,
+          decoration: BoxDecoration(
+            color: Sky.panel,
+            shape: BoxShape.circle,
+            border: Border.all(color: Sky.violet.withValues(alpha: 0.5), width: 1.4),
+          ),
+          child: const Icon(Icons.arrow_back_rounded, color: Sky.text, size: 22),
+        ),
+      );
 }
 
 class _SkinCard extends StatelessWidget {
   const _SkinCard({
-    required this.skin,
-    required this.owned,
-    required this.selected,
-    required this.price,
-    required this.onTap,
-  });
-
-  final int skin;
-  final bool owned;
-  final bool selected;
-  final int? price;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final edge = selected
-        ? AppColors.accent
-        : (owned ? NeonColors.cyan : NeonColors.violet);
-    return GestureDetector(
-      onTap: onTap,
-      child: SizedBox(
-        width: 108,
-        child: NeonCard(
-          edge: edge,
-          glow: selected,
-          padding: const EdgeInsets.all(8),
-          child: Column(
-            children: [
-              Expanded(
-                child: Image.asset(StackoAssets.block(skin),
-                    fit: BoxFit.contain),
-              ),
-              const SizedBox(height: 4),
-              if (selected)
-                Text('Active',
-                    style: AppTextStyles.button(size: 12, color: AppColors.accent))
-              else if (owned)
-                Text('Owned',
-                    style: AppTextStyles.body(size: 12, color: NeonColors.cyan))
-              else
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(Icons.monetization_on_rounded,
-                        color: AppColors.accent, size: 13),
-                    const SizedBox(width: 3),
-                    Text('${price ?? 0}',
-                        style: AppTextStyles.button(size: 13)),
-                  ],
-                ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _ThemeCard extends StatelessWidget {
-  const _ThemeCard({
     required this.theme,
     required this.owned,
     required this.selected,
@@ -333,66 +269,156 @@ class _ThemeCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final edge = selected
-        ? AppColors.accent
-        : (owned ? NeonColors.cyan : NeonColors.violet);
+    final edge = selected ? Sky.amber : (owned ? Sky.cyan : Sky.violet);
     return GestureDetector(
       onTap: onTap,
-      child: SizedBox(
-        width: 116,
-        child: NeonCard(
-          edge: edge,
-          glow: selected,
-          padding: const EdgeInsets.all(10),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Expanded(
-                child: Center(
-                  child: Container(
-                    width: 64,
-                    height: 10,
-                    decoration: BoxDecoration(
-                      color: theme.color,
-                      borderRadius: BorderRadius.circular(5),
-                      boxShadow: [
-                        BoxShadow(
-                          color: theme.glow.withValues(alpha: 0.8),
-                          blurRadius: 12,
-                          spreadRadius: 1,
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-              Text(theme.name,
-                  style: AppTextStyles.body(size: 11, color: AppColors.text),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis),
-              const SizedBox(height: 4),
-              if (selected)
-                Text('Active',
-                    style: AppTextStyles.button(
-                        size: 12, color: AppColors.accent))
-              else if (owned)
-                Text('Owned',
-                    style:
-                        AppTextStyles.body(size: 12, color: NeonColors.cyan))
-              else
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
+      child: Container(
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: Sky.panel,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: edge.withValues(alpha: 0.6), width: 1.5),
+          boxShadow: selected ? Sky.glow(edge, blur: 12) : null,
+        ),
+        child: Column(
+          children: [
+            Expanded(
+              child: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.monetization_on_rounded,
-                        color: AppColors.accent, size: 13),
-                    const SizedBox(width: 3),
-                    Text('${theme.price}',
-                        style: AppTextStyles.button(size: 13)),
+                    for (var i = 0; i < 3; i++)
+                      Container(
+                        margin: const EdgeInsets.symmetric(vertical: 2),
+                        width: 40 - i * 6,
+                        height: 9,
+                        decoration: BoxDecoration(
+                          color: theme.color,
+                          borderRadius: BorderRadius.circular(3),
+                          boxShadow: [
+                            BoxShadow(
+                                color: theme.glow.withValues(alpha: 0.7),
+                                blurRadius: 8),
+                          ],
+                        ),
+                      ),
                   ],
                 ),
-            ],
-          ),
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(theme.name,
+                style: Sky.label(size: 13),
+                maxLines: 1, overflow: TextOverflow.ellipsis),
+            const SizedBox(height: 3),
+            if (selected)
+              Text('ACTIVE', style: Sky.body(size: 11, color: Sky.amber))
+            else if (owned)
+              Text('OWNED', style: Sky.body(size: 11, color: Sky.cyan))
+            else
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.monetization_on_rounded,
+                      color: Sky.amber, size: 12),
+                  const SizedBox(width: 3),
+                  Text('${theme.price}', style: Sky.number(size: 13)),
+                ],
+              ),
+          ],
         ),
+      ),
+    );
+  }
+}
+
+class _UpgradeCard extends StatelessWidget {
+  const _UpgradeCard({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.id,
+    required this.accent,
+    required this.onBuy,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final String id;
+  final Color accent;
+  final VoidCallback onBuy;
+
+  @override
+  Widget build(BuildContext context) {
+    final level = progress.upgradeLevel(id);
+    final maxed = level >= GameProgress.upMaxLevel;
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Sky.panel,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: accent.withValues(alpha: 0.5), width: 1.4),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 46,
+            height: 46,
+            decoration: BoxDecoration(
+              color: accent.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Icon(icon, color: accent, size: 24),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: Sky.label(size: 16)),
+                const SizedBox(height: 3),
+                Text(subtitle, style: Sky.body(size: 12)),
+                const SizedBox(height: 6),
+                Row(
+                  children: [
+                    for (var i = 0; i < GameProgress.upMaxLevel; i++)
+                      Container(
+                        margin: const EdgeInsets.only(right: 4),
+                        width: 16,
+                        height: 6,
+                        decoration: BoxDecoration(
+                          color: i < level ? accent : Sky.panelDeep,
+                          borderRadius: BorderRadius.circular(3),
+                        ),
+                      ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 10),
+          GestureDetector(
+            onTap: maxed ? null : onBuy,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+              decoration: BoxDecoration(
+                color: maxed ? Sky.panelDeep : accent,
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: maxed ? null : Sky.glow(accent, blur: 10),
+              ),
+              child: maxed
+                  ? Text('MAX', style: Sky.label(size: 13, color: Sky.muted))
+                  : Row(mainAxisSize: MainAxisSize.min, children: [
+                      const Icon(Icons.monetization_on_rounded,
+                          color: Sky.bg0, size: 15),
+                      const SizedBox(width: 4),
+                      Text('${progress.upgradePrice(id)}',
+                          style: Sky.label(size: 14, color: Sky.bg0)),
+                    ]),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -419,123 +445,62 @@ class _PowerCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return NeonCard(
-      edge: accent,
-      glow: false,
-      padding: EdgeInsets.zero,
-      child: IntrinsicHeight(
-        child: Row(
-          children: [
-            Container(
-              width: 5,
-              decoration: BoxDecoration(
-                color: accent,
-                borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(20),
-                  bottomLeft: Radius.circular(20),
-                ),
-              ),
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Sky.panel,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: accent.withValues(alpha: 0.5), width: 1.4),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 46,
+            height: 46,
+            decoration: BoxDecoration(
+              color: accent.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(14),
             ),
-            const SizedBox(width: 12),
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 14),
-              child: Container(
-                width: 46,
-                height: 46,
-                decoration: BoxDecoration(
-                  color: accent.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: Icon(icon, color: accent, size: 24),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+            child: Icon(icon, color: accent, size: 24),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
                   children: [
-                    Row(
-                      children: [
-                        Flexible(
-                          child: Text(title,
-                              style: AppTextStyles.button(size: 16),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis),
-                        ),
-                        if (owned > 0) ...[
-                          const SizedBox(width: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 7, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: accent.withValues(alpha: 0.2),
-                              borderRadius: BorderRadius.circular(10),
-                              border: Border.all(
-                                  color: accent.withValues(alpha: 0.6)),
-                            ),
-                            child: Text('×$owned',
-                                style: AppTextStyles.body(
-                                    size: 11, color: accent)),
-                          ),
-                        ],
-                      ],
-                    ),
-                    const SizedBox(height: 3),
-                    Text(subtitle,
-                        style: AppTextStyles.body(
-                            size: 12, color: AppColors.textMuted)),
+                    Text(title, style: Sky.label(size: 16)),
+                    if (owned > 0) ...[
+                      const SizedBox(width: 8),
+                      Text('×$owned', style: Sky.body(size: 13, color: accent)),
+                    ],
                   ],
                 ),
-              ),
+                const SizedBox(height: 2),
+                Text(subtitle, style: Sky.body(size: 12)),
+              ],
             ),
-            const SizedBox(width: 10),
-            Padding(
-              padding: const EdgeInsets.only(right: 12),
-              child: _BuyButton(price: price, onTap: onBuy),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _BuyButton extends StatelessWidget {
-  const _BuyButton({required this.price, required this.onTap});
-  final int price;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Color(0xFFFFD93D), Color(0xFFFF8C00)],
           ),
-          borderRadius: BorderRadius.circular(14),
-          boxShadow: [
-            BoxShadow(
-                color: const Color(0xFFFFC233).withValues(alpha: 0.35),
-                blurRadius: 10),
-          ],
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.monetization_on_rounded,
-                color: Colors.white, size: 16),
-            const SizedBox(width: 4),
-            Text('$price',
-                style: AppTextStyles.button(size: 15, color: Colors.white)),
-          ],
-        ),
+          const SizedBox(width: 10),
+          GestureDetector(
+            onTap: onBuy,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+              decoration: BoxDecoration(
+                color: accent,
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: Sky.glow(accent, blur: 10),
+              ),
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                const Icon(Icons.monetization_on_rounded,
+                    color: Sky.bg0, size: 15),
+                const SizedBox(width: 4),
+                Text('$price', style: Sky.label(size: 14, color: Sky.bg0)),
+              ]),
+            ),
+          ),
+        ],
       ),
     );
   }
